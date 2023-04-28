@@ -1,0 +1,25 @@
+version: 0.2
+
+env:
+  shell: bash
+  exported-variables: image
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+      - cd Dockerfiles/nginx
+
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image... 
+      - docker build -t $IMAGE_REPO_NAME:latest .
+
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker push $IMAGE_REPO_NAME:latest
+      - image="$IMAGE_REPO_NAME:latest"

@@ -1,0 +1,289 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  VpcId:
+    Description: The VPC id
+    Type: String
+    Default: ''
+  VpcCidr:
+    Description: The VPC CIDR block
+    Type: String
+    Default: ''
+  PrivateSubnet1:
+    Description: The Private Subnet 1 id
+    Type: String
+    Default: ''
+  PrivateSubnet2:
+    Description: The Private Subnet 2 id
+    Type: String
+    Default: ''
+  PrivateSubnet3:
+    Description: The Private Subnet 3 id
+    Type: String
+    Default: ''
+  PublicSubnet1:
+    Description: The Public Subnet 1 id
+    Type: String
+    Default: ''
+  PublicSubnet2:
+    Description: The Public Subnet 2 id
+    Type: String
+    Default: ''
+  PublicSubnet3:
+    Description: The Public Subnet 3 id
+    Type: String
+    Default: ''
+  NginxImage:
+    Description: Container image
+    Type: String
+    Default: ''
+Resources:
+  NginxLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/${NginxCluster}'
+  NginxExtNLBTGroup443:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 3
+      IpAddressType: ipv4
+      Port: 443
+      Protocol: TCP
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VpcId
+  NginxExtNLBTGroup80:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 3
+      IpAddressType: ipv4
+      Port: 80
+      Protocol: TCP
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VpcId
+  NginxExtNLB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+        - !Ref PublicSubnet3
+      Type: network
+  NginxExtNLBListener443:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref NginxExtNLBTGroup443
+          Type: forward
+      LoadBalancerArn: !Ref NginxExtNLB
+      Port: 443
+      Protocol: TCP
+  NginxExtNLBListener80:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref NginxExtNLBTGroup80
+          Type: forward
+      LoadBalancerArn: !Ref NginxExtNLB
+      Port: 80
+      Protocol: TCP
+  NginxIntNLBTGroup443:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 3
+      IpAddressType: ipv4
+      Port: 443
+      Protocol: TCP
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VpcId
+  NginxIntNLBTGroup80:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    Properties:
+      HealthCheckIntervalSeconds: 5
+      HealthCheckTimeoutSeconds: 2
+      HealthyThresholdCount: 3
+      IpAddressType: ipv4
+      Port: 80
+      Protocol: TCP
+      TargetType: ip
+      UnhealthyThresholdCount: 3
+      VpcId: !Ref VpcId
+  NginxIntNLB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      IpAddressType: ipv4
+      Scheme: internal
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+      Type: network
+  NginxIntNLBListener443:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref NginxIntNLBTGroup443
+          Type: forward
+      LoadBalancerArn: !Ref NginxIntNLB
+      Port: 443
+      Protocol: TCP
+  NginxIntNLBListener80:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref NginxIntNLBTGroup80
+          Type: forward
+      LoadBalancerArn: !Ref NginxIntNLB
+      Port: 80
+      Protocol: TCP
+  NginxCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      CapacityProviders:
+        - FARGATE
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+  NginxTask:
+    Type: 'AWS::ECS::TaskDefinition'
+    Properties:
+      ExecutionRoleArn: !Ref NginxTaskExecRole
+      NetworkMode: awsvpc
+      ContainerDefinitions:
+        - Image: !Ref NginxImage
+          Name: Nginx
+          PortMappings:
+            - ContainerPort: 443
+              Protocol: tcp
+            - ContainerPort: 80
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-group: !Ref NginxLogGroup
+              awslogs-stream-prefix: lattice-ingress
+          Ulimits:
+            - HardLimit: 1048576
+              Name: nofile
+              SoftLimit: 1048576
+      Cpu: 1024
+      Memory: 2048
+      RequiresCompatibilities:
+        - FARGATE
+      RuntimePlatform:
+        CpuArchitecture: ARM64
+        OperatingSystemFamily: LINUX
+  NginxService:
+    Type: 'AWS::ECS::Service'
+    DependsOn:
+      - NginxIntNLBListener443
+    DependsOn:
+      - NginxExtNLBListener443
+    DependsOn:
+      - NginxIntNLBListener80
+    DependsOn:
+      - NginxExtNLBListener80
+    Properties:
+      Cluster: !Ref NginxCluster
+      DesiredCount: 3
+      LaunchType: FARGATE
+      LoadBalancers:
+        - ContainerName: Nginx
+          ContainerPort: 443
+          TargetGroupArn: !Ref NginxExtNLBTGroup443
+        - ContainerName: Nginx
+          ContainerPort: 443
+          TargetGroupArn: !Ref NginxIntNLBTGroup443
+        - ContainerName: Nginx
+          ContainerPort: 80
+          TargetGroupArn: !Ref NginxExtNLBTGroup80
+        - ContainerName: Nginx
+          ContainerPort: 80
+          TargetGroupArn: !Ref NginxIntNLBTGroup80
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups:
+            - !Ref NginxSecurityGroup
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+            - !Ref PrivateSubnet3
+      SchedulingStrategy: REPLICA
+      TaskDefinition: !Ref NginxTask
+  NginxSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VpcId
+      GroupDescription: Nginx Security group
+      SecurityGroupIngress:
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          Description: Ingress rule for tcp 443
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          Description: Ingress rule for tcp 80
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+          FromPort: -1
+          ToPort: -1
+      Tags:
+        - Key: Name
+          Value: Nginx SG
+  NginxTaskExecRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: ecs-actions
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ecr:GetAuthorizationToken'
+                  - 'ecr:BatchCheckLayerAvailability'
+                  - 'ecr:GetDownloadUrlForLayer'
+                  - 'ecr:BatchGetImage'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: '*'
+Outputs:
+  VpcId:
+    Description: ECS VPC ID
+    Value: !Ref VpcId
+    Export:
+      Name: !Sub ${AWS::StackName}-VpcId
+  NginxExtNLB:
+    Description: ECS External Load Balancer Name
+    Value: !GetAtt NginxExtNLB.DNSName
+    Export:
+      Name: !Sub ${AWS::StackName}-NginxExtNLB
+  NginxIntNLB:
+    Description: ECS Internal Load Balancer Name
+    Value: !GetAtt NginxIntNLB.DNSName
+    Export:
+      Name: !Sub ${AWS::StackName}-NginxIntNLB
