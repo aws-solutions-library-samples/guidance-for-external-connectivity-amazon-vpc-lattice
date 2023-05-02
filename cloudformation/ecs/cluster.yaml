@@ -176,8 +176,8 @@ Resources:
             - HardLimit: 1048576
               Name: nofile
               SoftLimit: 1048576
-      Cpu: 1024
-      Memory: 2048
+      Cpu: 2048
+      Memory: 4096
       RequiresCompatibilities:
         - FARGATE
       RuntimePlatform:
