@@ -30,13 +30,13 @@ Deployment of this solution is straight forward, you must deploy the ingress [st
 
 A level of performance testing was run against this solution. The specifics of the testing were as follows:
 
-    -   Region tested us-west-2
-    -   The Amazon VPC Lattice Service Published was [AWS LAMBDA](https://aws.amazon.com/lambda/)
-        -   This was a simple LAMBDA, that had concurrency elevated to 3000 (from 1000 base)
-    -   External access via a three-zone AWS Network Load Balancer using DNS for round-robin on requests
-    -   AWS NLB was not configured for X-zone load balancing (in tests, this performed less well)
-    -   Three zonal AWS Fargate Tasks bound to the Network Load Balancer
-        -   Each task had 2048 CPU units and 4096MB RAM
+-   Region tested us-west-2
+-   The Amazon VPC Lattice Service Published was [AWS LAMBDA](https://aws.amazon.com/lambda/)
+    -   This was a simple LAMBDA, that had concurrency elevated to 3000 (from 1000 base)
+-   External access via a three-zone AWS Network Load Balancer using DNS for round-robin on requests
+-   AWS NLB was not configured for X-zone load balancing (in tests, this performed less well)
+-   Three zonal AWS Fargate Tasks bound to the Network Load Balancer
+    -   Each task had 2048 CPU units and 4096MB RAM
 
 The testing harness used came from an AWS quick start solution that can be found [here](https://aws.amazon.com/solutions/implementations/distributed-load-testing-on-aws/) and additionally, the template can be found in this repo, [here](/load-test/distributed-load-testing-on-aws.template).
 
