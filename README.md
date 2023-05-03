@@ -28,7 +28,7 @@ Deployment of this solution is straight forward, you must deploy the ingress [st
   
 ## Performance
 
-A level of performance testing was run against this solution. The specifics of the testing were as follows:
+A level of performance testing was performed against this solution. The specifics of the testing were as follows:
 
 -   Region tested us-west-2
 -   The Amazon VPC Lattice Service Published was [AWS LAMBDA](https://aws.amazon.com/lambda/)
