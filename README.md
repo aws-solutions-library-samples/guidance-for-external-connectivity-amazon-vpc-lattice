@@ -6,7 +6,9 @@ This code bundle builds a [Serverless](https://aws.amazon.com/serverless/) ingre
 
 ## Solution Overview
 
-**This solution is deployed in two parts, the first is the Base solution** 
+This solution is deployed in two parts:
+
+***Base Solution***
 
 The base solution copies the code in this repo into your own AWS account and enables you to iterate on it - your changes, as you make them will be saved to your own git compliant repo from which you can orchestrate deployment. The stack template sets up an [Amazon Virtual Private Cloud](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) across three [Availability Zones](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) with both public and private subnets across all three as well as supporting infrastructure such as [NAT Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html), [Route Tables](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) and an [Internet Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html). The stack also creates the infrastructure that is needed to iterate on your code releases and deploys an [AWS Code Commit](https://aws.amazon.com/codecommit/)repo for holding the code, an [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) for storing container images, an [AWS CodeBuild](https://aws.amazon.com/codebuild/) environment for building containers that run an open-source version of [NGINX](https://www.nginx.com/) and an [AWS CodePipeline](https://aws.amazon.com/codepipeline/) for the orchestration of the solution build and delivery. Once deployed, your pipeline is ready for release.
 
@@ -14,7 +16,7 @@ The base solution copies the code in this repo into your own AWS account and ena
 
 ![image](/img/nginx-docker-Base.drawio.png)
 
-**The second part of this solution deploys the ingress compute components**
+***ECS Solution***
 
 The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) into your AWS account using CloudFormation. The stack template sets up '**External**' access by deploying an internet-facing [Amazon Network Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html) that is deployed into the three public subnets and across the three Availability Zones. The stack template also sets up internal access (hybrid) by using an internal load balancer that can only be reached from within the Amazon Virtual Private Cloud or via hybrid connections such as [AWS Virtual Private Network](https://docs.aws.amazon.com/vpc/latest/userguide/vpn-connections.html) or [AWS Direct Connect](https://docs.aws.amazon.com/directconnect/latest/UserGuide/Welcome.html) and four [Target Groups](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html) that are used to pass traffic to back-end compute instances. The stack template sets up an [Elastic Container Service Cluster](https://aws.amazon.com/ecs/) an [ECS Task Definition](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definitions.html) and an [ECS Service](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs_services.html) that uses [Amazon Fargate](https://aws.amazon.com/fargate/) as the capacity provider. As Amazon Fargate tasks are deployed, they are mapped to the external and internal load balancer target groups which are bound to two 'tcp' listeners configured for ports 80 and 443. ECS Tasks therefore service both internal and external traffic.
 
@@ -24,7 +26,23 @@ The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) 
 
 ## Deployment
 
-Deployment of this solution is straight forward, you must deploy the ingress [stack template](/pipeline-stack.yml) in any [AWS Region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) where you are publishing [Amazon VPC Lattice Services](https://docs.aws.amazon.com/vpc-lattice/latest/ug/services.html). More succinctly, you must deploy this stack as many times as you have distinct Amazon Lattice VPC Service Networks in a region, since there is a 1:1 mapping between Service Networks and Amazon VPCs.
+Deployment of this solution is straight forward, you must:
+
+1.  Deploy the baseline stack using the [stack template](/pipeline-stack.yml) in any [AWS Region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) where you are publishing [Amazon VPC Lattice Services](https://docs.aws.amazon.com/vpc-lattice/latest/ug/services.html). More succinctly, you must deploy this stack as many times as you have distinct Amazon Lattice VPC Service Networks in a region, since there is a 1:1 mapping between Service Networks and Amazon VPCs.
+   
+2. After the baseline stack has been deployed, your CodePipeline will be waiting for you to release it. More accurately, you are required to 'enable a transition' from the **source** stage to the **build** stage. After you enable this transition, the pipeline will build the ECS infrastructure and deploy the load balancers and containers.
+
+3. Following this {todo - describe the r53 creation and attachment process}
+
+## Configuration and Testing
+
+Once both parts of the solution have been deployed you should be able to perform a simple curl against your network load balancers public DNS name, or your own dns alias records that you may have created to masquerade behind. If you have enabled your VPC Lattice Service or Service Network for authorisation, then you will need to sign your requests to the endpoint in the **same region** that you have deployed the stack in, the following example using the **--aws-sigv4** switch with curl demonstrates how to do this:
+
+    curl https://yourvpclatticeservice.name \
+        --aws-sigv4 "aws:amz:%region%:vpc-lattice-svcs" \
+        --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
+        --header "x-amz-security-token:$AWS_SESSION_TOKEN" \
+        --header "x-amz-content-sha256:UNSIGNED-PAYLOAD"
   
 ## Performance
 
@@ -62,9 +80,9 @@ The following results show the harness performance, NLB performance, VPC Lattice
 
 ## Clean-up
 
-Clean-up of this solution is straight-forward. First, start by removing the stack that was created by the CodPipeline - this can be identified in the CloudFormation console with the name **$AWS::StackName-AWS::AccountId-ecs**. Once this has been removed, you can remove the parent stack that built the base stack. 
+Clean-up of this solution is straight-forward. First, start by removing the stack that was created by the CodePipeline - this can be identified in the CloudFormation console with the name **%basestackname%-%accountid%-ecs**. Once this has been removed, you can remove the parent stack that built the base stack. 
 
-***NOTE*** The ECR repo and the S3 bucket will remain and should be removed manually
+***NOTE*** The ECR repo and the S3 bucket will remain and should be removed manually.
 
 ## Security
 
