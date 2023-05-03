@@ -4,15 +4,15 @@
 
 This code bundle builds a [Serverless](https://aws.amazon.com/serverless/) ingress solution, enabling [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/) Services to be reached by consumers that reside outside of the Amazon Virtual Private Cloud ([VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html)) both from trusted (on-premise) and non-trusted (external) locations.
 
-**The following depicts the base solution:**
-
-![image](/img/nginx-docker-Base.drawio.png)
-
 ## Solution Overview
 
 **This solution is deployed in two parts, the first is the Base solution** 
 
 The base solution copies the code in this repo into your own AWS account and enables you to iterate on it - your changes, as you make them will be saved to your own git compliant repo from which you can orchestrate deployment. The stack template sets up an [Amazon Virtual Private Cloud](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) across three [Availability Zones](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) with both public and private subnets across all three as well as supporting infrastructure such as [NAT Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html), [Route Tables](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html) and an [Internet Gateway](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Internet_Gateway.html). The stack also creates the infrastructure that is needed to iterate on your code releases and deploys an [AWS Code Commit](https://aws.amazon.com/codecommit/)repo for holding the code, an [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) for storing container images, an [AWS CodeBuild](https://aws.amazon.com/codebuild/) environment for building containers that run an open-source version of [NGINX](https://www.nginx.com/) and an [AWS CodePipeline](https://aws.amazon.com/codepipeline/) for the orchestration of the solution build and delivery. Once deployed, your pipeline is ready for release.
+
+**The following depicts the base solution:**
+
+![image](/img/nginx-docker-Base.drawio.png)
 
 **The second part of this solution deploys the ingress compute components**
 
@@ -28,11 +28,43 @@ Deployment of this solution is straight forward, you must deploy the ingress [st
   
 ## Performance
 
-{todo} - needs benchmarking configuration and image snapshots
+A level of performance testing was run against this solution. The specifics of the testing were as follows:
+
+    -   Region tested us-west-2
+    -   The Amazon VPC Lattice Service Published was [AWS LAMBDA](https://aws.amazon.com/lambda/)
+        -   This was a simple LAMBDA, that had concurrency elevated to 3000 (from 1000 base)
+    -   External access via a three-zone AWS Network Load Balancer using DNS for round-robin on requests
+    -   AWS NLB was not configured for X-zone load balancing (in tests, this performed less well)
+    -   Three zonal AWS Fargate Tasks bound to the Network Load Balancer
+        -   Each task had 2048 CPU units and 4096MB RAM
+
+The testing harness used came from an AWS quick start solution that can be found [here](https://aws.amazon.com/solutions/implementations/distributed-load-testing-on-aws/) and additionally, the template can be found in this repo, [here](/load-test/distributed-load-testing-on-aws.template).
+
+The following results show the harness performance, NLB performance, VPC Lattice performance and LAMBDA performance given 5000 remote users, generating ~3000 requests per second, with sustained access for 20 mins and a ramp-up time of 5 minutes.
+
+**Harness Performance**
+
+![image](/img/perf-testing-harness.png)
+
+![image](/img/perf-testing-percentiles.png)
+
+**ECS Performance**
+
+![image](/img/perf-testing-ecs.png)
+
+**LAMBDA Performance**
+
+![image](/img/perf-testing-lambda.png)
+
+**VPC Lattice Performance**
+
+![image](/img/perf-testing-lattice.png)
 
 ## Clean-up
 
-{todo} - need removal guidance for the stack
+Clean-up of this solution is straight-forward. First, start by removing the stack that was created by the CodPipeline - this can be identified in the CloudFormation console with the name **$AWS::StackName-AWS::AccountId-ecs**. Once this has been removed, you can remove the parent stack that built the base stack. 
+
+***NOTE*** The ECR repo and the S3 bucket will remain and should be removed manually
 
 ## Security
 
