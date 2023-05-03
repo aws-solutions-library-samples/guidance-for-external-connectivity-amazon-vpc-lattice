@@ -10,16 +10,15 @@ The AWS CloudFormation template in this folder provides you an example you can u
 
 ![image](../../img/example-diagram.png)
 
-## Inputs
+## Inputs
 
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| CustomDomainName | Custom Domain Name for the VPC Lattice Service. | `String` |  | yes |
-| CertificateARN | ARN of the AWS Certificate Manager certificate to associate to the VPC Lattice Service. | `String` |  | yes |
-| HostedZoneId | Public or Private Hosted Zone ID (to create CNAME record). | `String` | `" "` | no |
-| IngressNLBDomainName | NLB domain name - created in Ingress VPC. | `String` | `" "` | no |
-| IngressVpcId | Ingress VPC ID (for Service Network VPC Association). | `String` | `" "` | no |
-| LatestAmiId | Latest AMI ID. | `"AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"` | `"/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"` | yes |
+| Name | Description | Required |
+|------|-------------|:--------:|
+| CustomDomainName | Custom Domain Name for the VPC Lattice Service. | yes |
+| CertificateARN | ARN of the AWS Certificate Manager certificate to associate to the VPC Lattice Service. | yes |
+| HostedZoneId | Public or Private Hosted Zone ID (to create CNAME record). | no |
+| IngressNLBDomainName | NLB domain name - created in Ingress VPC. | no |
+| IngressVpcId | Ingress VPC ID (for Service Network VPC Association). | no |
 
 ## Deployment and Clean-up
 
