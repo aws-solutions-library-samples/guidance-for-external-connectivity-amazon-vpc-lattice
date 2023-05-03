@@ -9,9 +9,13 @@ Parameters:
   CertificateARN:
     Type: String
     Description: ARN of the AWS Certificate Manager certificate to associate to the VPC Lattice Service.
-  HostedZoneId:
+  ConsumerHostedZoneID:
     Type: String
-    Description: (OPTIONAL) Public or Private Hosted Zone ID (to create CNAME record).
+    Description: (OPTIONAL) Public or Private Hosted Zone ID for the consumer application DNS resolution (CNAME record).
+    Default: ""
+  IngressHostedZoneId:
+    Type: String
+    Description: (OPTIONAL) Private Hosted Zone ID for the proxy solution DNS resoltuion (CNAME record).
     Default: ""
   IngressNLBDomainName:
     Type: String
@@ -26,9 +30,13 @@ Parameters:
     Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
 
 Conditions:
-  ProvidedHostedZone: !Not
+  ProvidedConsumerHostedZone: !Not
     - !Equals
-      - !Ref HostedZoneId
+      - !Ref ConsumerHostedZoneId
+      - ""
+  ProvidedIngressHostedZone: !Not
+    - !Equals
+      - !Ref IngressHostedZoneId
       - ""
   ProvidedNLBDomainName: !Not
     - !Equals
@@ -38,8 +46,8 @@ Conditions:
     - !Equals
       - !Ref IngressVpcId
       - ""
-  CreateRecord: !And
-    - !Condition ProvidedHostedZone
+  CreateConsumerRecord: !And
+    - !Condition ProvidedConsumerHostedZone
     - !Condition ProvidedNLBDomainName
 
 Resources:
@@ -612,14 +620,27 @@ Resources:
                       reason="Caught exception, check logs",
                   )
 
-# ---------- ROUTE 53 RECORD ----------
-  CNAMERecord:
-    Condition: CreateRecord
+# ---------- ROUTE 53 RECORDS ----------
+  # Route 53 CNAME record in "Consumer" Hosted Zone
+  ConsumerCNAMERecord:
+    Condition: CreateConsumerRecord
     Type: AWS::Route53::RecordSet
     Properties:
-      HostedZoneId: !Ref HostedZoneId
+      HostedZoneId: !Ref ConsumerHostedZoneId
       Type: CNAME
       TTL: 300
       Name: !Ref CustomDomainName
       ResourceRecords:
         - !Ref IngressNLBDomainName
+  
+  # Route 53 CNAME record in "Ingress" Hosted Zone
+  IngressCNAMERecord:
+    Condition: ProvidedIngressHostedZone
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref IngressHostedZoneId
+      Type: CNAME
+      TTL: 300
+      Name: !Ref CustomDomainName
+      ResourceRecords:
+        - !GetAtt LatticeService.DnsEntry.DomainName
