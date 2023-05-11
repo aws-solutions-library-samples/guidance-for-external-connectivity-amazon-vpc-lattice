@@ -32,7 +32,15 @@ Deployment of this solution is straight forward, you must:
    
 2. After the baseline stack has been deployed, your CodePipeline will be waiting for you to release it. More accurately, you are required to 'enable a transition' from the **source** stage to the **build** stage. After you enable this transition, the pipeline will build the ECS infrastructure and deploy the load balancers and containers.
 
-3. Following this {todo - describe the r53 creation and attachment process}
+3. Following this you can now [associate the ingress VPC](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-network-associations.html) to the [Amazon VPC Lattice Service Network](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-networks.html) you want. To have the solution working and access your Lattice Services using the ingress solution, you will need to play with the DNS resolution:
+
+    * A Hosted Zone should translate the service's domain name into the NLB domain name located in the Ingress VPC (CNAME record).
+        * If the NLB is a public one, you will need to create a [Route 53 Public Hosted Zone](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/AboutHZWorkingWith.html).
+        * If the NLB is a private one, and the consumer application is located in your on-premises environments; you will need to create a [Route 53 Private Hosted Zone](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-private.html) and associate it with a VPC where you can forward your on-premises DNS requests - either using a [Route 53 Resolver Inbound endpoint]() or your own custom Hybrid DNS solution.
+        * If the NLB is a private one, and the consumer application is located in another AWS Region; you will need to create a Route 53 Private Hosted Zone and associate it with the VPC where this consumer application is located.
+    * A Private Hosted Zone that translates the service's domain name into the VPC Lattice Service generated domain name. This Private HZ needs to be associated with the Ingress VPC.
+
+You can find a [CloudFormation example](./cloudformation/lattice-example/) that deploys a Service Network and a Service for you to test the solution. The example also creates the CNAME records explained above, but it does not create any Route 53 Hosted Zone.
 
 ## Configuration and Testing
 
