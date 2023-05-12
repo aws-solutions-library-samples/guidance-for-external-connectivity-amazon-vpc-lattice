@@ -3,7 +3,7 @@ Description: ECS Automation Template
 
 Parameters:
   GitRepo:
-    Default: https://github.com/adampalm/dev-ecs-lattice.git
+    Default: https://github.com/aws-samples/connectivity-patterns-for-amazon-vpc-lattice.git
     Type: String
 
   VpcName:
