@@ -237,7 +237,7 @@ Resources:
           ToPort: 80
           Description: Ingress rule for tcp 80
       SecurityGroupEgress:
-        - CidrIp: 169.254.171/24
+        - CidrIp: 0.0.0.0/0
           IpProtocol: '-1'
           FromPort: -1
           ToPort: -1

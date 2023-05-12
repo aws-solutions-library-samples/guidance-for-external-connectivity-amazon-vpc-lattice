@@ -476,7 +476,29 @@ Resources:
         - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${AWS::StackName}-pipeline
           RoleArn: !GetAtt CPipelineCloudWatchEventRole.Arn
           Id: codepipeline-AppPipeline
+  
+  # Security #
 
+  EndpointSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: VPC Endpoint Security group
+      SecurityGroupIngress:
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: '-1'
+          FromPort: 443
+          ToPort: 443
+          Description: Ingress rule for tcp 443
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+          FromPort: -1
+          ToPort: -1
+      Tags:
+        - Key: Name
+          Value: Endpoint SG
+  
   # Network #
 
   VPC:
@@ -556,42 +578,7 @@ Resources:
       RouteTableId: !Ref PublicSubnetRouteTable
       SubnetId: !Ref PublicSubnet3
 
-  # NAT
-
-  NatGwPublicSubnet1:
-    Type: AWS::EC2::NatGateway
-    Properties:
-        AllocationId: !Sub ${NatGwPublicSubnet1EIP.AllocationId}
-        SubnetId: !Ref PublicSubnet1
-
-  NatGwPublicSubnet1EIP:
-    Type: AWS::EC2::EIP
-    Properties:
-        Domain: vpc
-
-  NatGwPublicSubnet2:
-    Type: AWS::EC2::NatGateway
-    Properties:
-        AllocationId: !Sub ${NatGwPublicSubnet2EIP.AllocationId}
-        SubnetId: !Ref PublicSubnet2
-
-  NatGwPublicSubnet2EIP:
-    Type: AWS::EC2::EIP
-    Properties:
-        Domain: vpc
-
-  NatGwPublicSubnet3:
-    Type: AWS::EC2::NatGateway
-    Properties:
-        AllocationId: !Sub ${NatGwPublicSubnet3EIP.AllocationId}
-        SubnetId: !Ref PublicSubnet3
-
-  NatGwPublicSubnet3EIP:
-    Type: AWS::EC2::EIP
-    Properties:
-        Domain: vpc
-
-  # Private Subnets
+  # Private Subnets #
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
@@ -605,13 +592,6 @@ Resources:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
-
-  PrivateSubnet1DefaultIPv4Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref PrivateSubnet1RouteTable
-      NatGatewayId: !Ref NatGwPublicSubnet1
 
   PrivateSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -632,13 +612,6 @@ Resources:
     Properties:
       VpcId: !Ref VPC
 
-  PrivateSubnet2DefaultIPv4Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref PrivateSubnet2RouteTable
-      NatGatewayId: !Ref NatGwPublicSubnet2
-
   PrivateSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
@@ -658,15 +631,63 @@ Resources:
     Properties:
       VpcId: !Ref VPC
 
-  PrivateSubnet3DefaultIPv4Route:
-    Type: AWS::EC2::Route
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref PrivateSubnet3RouteTable
-      NatGatewayId: !Ref NatGwPublicSubnet3
-
   PrivateSubnet3RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateSubnet3RouteTable
       SubnetId: !Ref PrivateSubnet3
+
+# VPC Endpoints #
+
+  EcrDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.dkr
+      SubnetIds: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+
+  EcrApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ecr.api
+      SubnetIds: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+
+  CwatchLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref EndpointSecurityGroup
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.logs
+      SubnetIds: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties: 
+      RouteTableIds: 
+        - !Ref PrivateSubnet1RouteTable
+        - !Ref PrivateSubnet2RouteTable
+        - !Ref PrivateSubnet3RouteTable
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      VpcId: !Ref VPC
