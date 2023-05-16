@@ -24,6 +24,21 @@ The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) 
 
 ![image](/img/nginx-docker-ECS-cluster.drawio.png)
 
+## Security
+
+This solution uses [PrivateLink Interface Endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) within the Private Subnets so that [Nat Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) are not required to reach the EC* Services. External access to this solution is only possible via the external or internal load balancers. NLBs currently cannot have [Security Groups](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html) applied to them, however you can work with your AWS account team to enable this feature!
+
+This solution does not require this advanced feature to provide layer-3 protection. The Target Groups for the load balancers have the `proxy_protocol_v2.enabled` attribute set such that the true IP source is passed to the NGINX targets. Within the [nginx.conf](/Dockerfiles/nginx/nginx.conf) the `Server{}` declaration for both the `Http` and `Stream` modules have their listeners set to accept the proxy protocol header `..listen % proxy_protocol..` By setting this, both modules can import the [ipcontrol.conf](/Dockerfiles/nginx/ipcontrol.conf) access list, which lists the source IP addresses that can connect to the proxy targets. By adjusting the values in this file and rebuilding your container image and refreshing the ECS Service, your IP control values will be enforced.
+
+The following rule entries permit ALL RFC1918 networks to connect to the proxy service (including traffic from the load balancer nodes) whilst dropping everything else. Once you know where your traffic will be originating from outside of the VPC (which could include external clouds or networks), simply modify this file as appropriate with a suitable allow statement.
+
+```
+allow 192.168.0.0/16;
+allow 172.16.0.0/12;
+allow 10.0.0.0/8;
+deny all;
+```
+
 ## Deployment
 
 Deployment of this solution is straight forward, you must:
