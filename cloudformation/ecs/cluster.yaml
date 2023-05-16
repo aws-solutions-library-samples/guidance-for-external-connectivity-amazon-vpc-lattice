@@ -51,8 +51,8 @@ Resources:
       Port: 443
       Protocol: TCP
       TargetGroupAttributes:
-        - proxy_protocol_v2.enabled
-          true
+        - Key: proxy_protocol_v2.enabled
+          Value: true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
@@ -66,8 +66,8 @@ Resources:
       Port: 80
       Protocol: TCP
       TargetGroupAttributes:
-        - proxy_protocol_v2.enabled
-          true
+        - Key: proxy_protocol_v2.enabled
+          Value: true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
@@ -109,8 +109,8 @@ Resources:
       Port: 443
       Protocol: TCP
       TargetGroupAttributes:
-        - proxy_protocol_v2.enabled
-          true
+        - Key: proxy_protocol_v2.enabled
+          Value: true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
@@ -124,8 +124,8 @@ Resources:
       Port: 80
       Protocol: TCP
       TargetGroupAttributes:
-        - proxy_protocol_v2.enabled
-          true
+        - Key: proxy_protocol_v2.enabled
+          Value: true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
