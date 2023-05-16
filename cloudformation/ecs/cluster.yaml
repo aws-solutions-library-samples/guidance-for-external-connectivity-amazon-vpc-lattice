@@ -50,6 +50,9 @@ Resources:
       IpAddressType: ipv4
       Port: 443
       Protocol: TCP
+      TargetGroupAttributes:
+        - proxy_protocol_v2.enabled
+          true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
@@ -62,6 +65,9 @@ Resources:
       IpAddressType: ipv4
       Port: 80
       Protocol: TCP
+      TargetGroupAttributes:
+        - proxy_protocol_v2.enabled
+          true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
@@ -102,6 +108,9 @@ Resources:
       IpAddressType: ipv4
       Port: 443
       Protocol: TCP
+      TargetGroupAttributes:
+        - proxy_protocol_v2.enabled
+          true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
@@ -114,6 +123,9 @@ Resources:
       IpAddressType: ipv4
       Port: 80
       Protocol: TCP
+      TargetGroupAttributes:
+        - proxy_protocol_v2.enabled
+          true
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
