@@ -59,7 +59,7 @@ You can find a [CloudFormation example](./cloudformation/lattice-example/) that 
 
 ## Configuration and Testing
 
-Once both parts of the solution have been deployed you should be able to perform a simple curl against your network load balancers public DNS name, or your own dns alias records that you may have created to masquerade behind. If you have enabled your VPC Lattice Service or Service Network for authorisation, then you will need to sign your requests to the endpoint in the **same region** that you have deployed the stack in, the following example using the **--aws-sigv4** switch with curl demonstrates how to do this:
+Once both parts of the solution have been deployed you should be able to perform a simple curl against your network load balancer's public DNS name, or your own dns alias records that you may have created to masquerade behind. If you have enabled your VPC Lattice Service or Service Network for authorisation, then you will need to sign your requests to the endpoint in the **same region** that you have deployed the stack in -  the following example using the **--aws-sigv4** switch with curl demonstrates how to do this:
 
     curl https://yourvpclatticeservice.name \
         --aws-sigv4 "aws:amz:%region%:vpc-lattice-svcs" \
@@ -69,7 +69,7 @@ Once both parts of the solution have been deployed you should be able to perform
   
 ## Performance
 
-A level of performance testing was performed against this solution. The specifics of the testing were as follows:
+A level of testing was performed against this solution. The specifics of the testing were as follows:
 
 -   Region tested us-west-2
 -   The Amazon VPC Lattice Service Published was [AWS LAMBDA](https://aws.amazon.com/lambda/)
