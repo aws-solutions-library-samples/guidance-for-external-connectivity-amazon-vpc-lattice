@@ -28,7 +28,7 @@ The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) 
 
 This solution uses [PrivateLink Interface Endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) within the Private Subnets so that [Nat Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) are not required to reach the EC* Services. External access to this solution is only possible via the external or internal load balancers. NLBs currently cannot have [Security Groups](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html) applied to them, however you can work with your AWS account team to enable this feature!
 
-This solution does not require this advanced feature to provide layer-3 protection. The Target Groups for the load balancers have the `proxy_protocol_v2.enabled` attribute set such that the true IP source is passed to the NGINX targets. Within the [nginx.conf](/Dockerfiles/nginx/nginx.conf) the `Server{}` declaration for both the `Http` and `Stream` modules have their listeners set to accept the proxy protocol header `..listen % proxy_protocol..` By setting this, both modules can import the [ipcontrol.conf](/Dockerfiles/nginx/ipcontrol.conf) access list, which lists the source IP addresses that can connect to the proxy targets. By adjusting the values in this file and rebuilding your container image and refreshing the ECS Service, your IP control values will be enforced.
+This solution does not require this advanced feature to provide layer-3 protection. The Target Groups for the load balancers have the `proxy_protocol_v2.enabled` attribute set such that the true IP source is passed to the NGINX targets. Within the [nginx.conf](/Dockerfiles/nginx/nginx.conf) the `Server{}` declaration for both the `Http` and `Stream` modules have their listeners set to accept the proxy protocol header `..listen % proxy_protocol..` By setting this, both modules can import the [ipcontrol.conf](/Dockerfiles/nginx/ipcontrol.conf) access list, which lists the source IP addresses that can connect to the proxy targets.
 
 The following rule entries permit ALL RFC1918 networks to connect to the proxy service (including traffic from the load balancer nodes) whilst dropping everything else. Once you know where your traffic will be originating from outside of the VPC (which could include external clouds or networks), simply modify this file as appropriate with a suitable allow statement.
 
@@ -37,6 +37,69 @@ allow 192.168.0.0/16;
 allow 172.16.0.0/12;
 allow 10.0.0.0/8;
 deny all;
+```
+
+## Proxy Configuration
+
+The NGINX proxy image is built by CodeBuild each time the pipeline runs. To make changes to the [nginx.conf](/Dockerfiles/nginx/nginx.conf), simply modify the config in your CodeCommit repo and commit the changes back. The pipeline will run and create a newer `$latest` version in the ECR repo. To instantiate this, you need to `Update` your [ECS Fargate Service](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/update-service-console-v2.html). As with changes to the `nginx.conf` file, changes to the `ipcontrol.conf` file will also create a pipeline run - by adjusting the values in this file the cotnainer image is rebuilt. After refreshing your ECS Service, your IP control values will be enforced.
+
+The NGINX conf file is configured (as part of this repo) in the following way:
+
+```
+load_module /usr/lib64/nginx/modules/ngx_stream_module.so;
+```
+
+This loads the tcp streaming module for tls based passthrough.
+
+The stream listener reads the SNI header to understand where the traffic is destined to, it uses the Amazon provided DNS endpoint at `169.254.169.253` for resolution which supplies a zonal response for the Lattice Service. The downstream endpoint is reached using the following directive `proxy_pass $ssl_preread_server_name:$server_port`
+
+```
+server {
+    listen 443 proxy_protocol;
+    proxy_pass $ssl_preread_server_name:$server_port;
+    ssl_preread on;
+    set_real_ip_from 192.168.0.0/16;
+}
+```
+Proxy protocol is configured thus `listen 443 proxy_protocol`. This configuration trusts the NLB to pass **true** source IP information the NGINX proxy `set_real_ip_from 192.168.0.0/16` and enables NGINX to make affirmative decisions about the access it should permit based in this imported conf file:
+
+```
+include /etc/nginx/ipcontrol.conf;
+
+```
+
+Logging is output directly to CloudWatch Logs group for each Fargate Task:
+
+```
+log_format  basic   '$time_iso8601 $remote_addr $proxy_protocol_addr $proxy_protocol_port $protocol $server_port '
+                '$status $upstream_addr $upstream_bytes_sent $upstream_bytes_received $session_time  $upstream_connect_time';
+
+access_log  /var/log/nginx/stream_access.log basic if=$notAHealthCheck;
+error_log   /var/log/nginx/stream_error.log crit;
+
+```
+
+This handy logic entry removes unnecessary health-check information from the logs:
+
+```
+map $bytes_received $notAHealthCheck {
+    "~0"            0;
+    default         1;
+}
+```
+The http module is configured in a similar fashion to the stream module, except this proxies the http connection between the NLB and the Lattice Service -  passing the Host header and setting the upstream http version.
+
+```
+server {
+    listen 80 proxy_protocol;
+    location / {
+        proxy_set_header Host $host;
+        proxy_pass  http://$host:80;
+        proxy_http_version 1.1;
+    }
+    set_real_ip_from 192.168.0.0/16;
+    real_ip_header proxy_protocol;
+}
 ```
 
 ## Deployment
