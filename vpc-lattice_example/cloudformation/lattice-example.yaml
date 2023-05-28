@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Amazon VPC Lattice Provider Example."
+
+Parameters:
+  CustomDomainName:
+    Type: String
+    Description: Custom Domain Name for the VPC Lattice Service.
+  CertificateARN:
+    Type: String
+    Description: ARN of the AWS Certificate Manager certificate to associate to the VPC Lattice Service.
+  ConsumerHostedZoneID:
+    Type: String
+    Description: (OPTIONAL) Public or Private Hosted Zone ID for the consumer application DNS resolution (CNAME record).
+    Default: ""
+  IngressHostedZoneId:
+    Type: String
+    Description: (OPTIONAL) Private Hosted Zone ID for the proxy solution DNS resoltuion (CNAME record).
+    Default: ""
+  IngressNLBDomainName:
+    Type: String
+    Description: (OPTIONAL) NLB domain name - created in Ingress VPC.
+    Default: ""
+  IngressVpcId:
+    Type: String
+    Description: (OPTIONAL) Ingress VPC ID (for Service Network VPC Association).
+    Default: ""
+
+Conditions:
+  ProvidedConsumerHostedZone: !Not
+    - !Equals
+      - !Ref ConsumerHostedZoneId
+      - ""
+  ProvidedIngressHostedZone: !Not
+    - !Equals
+      - !Ref IngressHostedZoneId
+      - ""
+  ProvidedNLBDomainName: !Not
+    - !Equals
+      - !Ref IngressNLBDomainName
+      - ""
+  ProvidedIngressVpcId: !Not
+    - !Equals
+      - !Ref IngressVpcId
+      - ""
+  CreateConsumerRecord: !And
+    - !Condition ProvidedConsumerHostedZone
+    - !Condition ProvidedNLBDomainName
+
+Resources:
+# ---------- AMAZON VPC LATTICE RESOURCES ----------
+  # Service Network
+  LatticeServiceNetwork:
+    Type: AWS::VpcLattice::ServiceNetwork
+    Properties:
+      Name: service-network-example
+      AuthType: AWS_IAM
+
+  LatticeServiceNetworkAuthPolicy:
+    Type: AWS::VpcLattice::AuthPolicy
+    Properties:
+      ResourceIdentifier: !Ref LatticeServiceNetwork
+      Policy:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: '*'
+            Resource: '*'
+  
+  # Service
+  LatticeService:
+    Type: AWS::VpcLattice::Service
+    Properties:
+      Name: service-example
+      AuthType: AWS_IAM
+      CustomDomainName: !Ref CustomDomainName
+      CertificateArn: !Ref CertificateARN
+
+  LatticeServiceAssociation:
+    Type: AWS::VpcLattice::ServiceNetworkServiceAssociation
+    Properties:
+      ServiceIdentifier: !Ref LatticeService
+      ServiceNetworkIdentifier: !Ref LatticeServiceNetwork
+
+  LatticeServiceAccessLogSubscription:
+    Type: AWS::VpcLattice::AccessLogSubscription
+    Properties:
+      ResourceIdentifier: !Ref LatticeService
+      DestinationArn: !GetAtt LatticeServiceLogGroup.Arn
+  
+  LatticeServiceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lattice/service/service-example
+      RetentionInDays: 7
+  
+  LatticeServiceAuthPolicy:
+    Type: AWS::VpcLattice::AuthPolicy
+    Properties:
+      ResourceIdentifier: !Ref LatticeService
+      Policy:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: '*'
+            Resource: '*'
+
+  # Lambda Target
+  LatticeLambdaTarget:
+    Type: AWS::VpcLattice::TargetGroup
+    Properties:
+      Name: lambda-target
+      Type: LAMBDA
+      Targets:
+        - Id: !GetAtt LambdaFunction.Arn
+
+  # Listeners and Rules
+  LatticeListener:
+    Type: AWS::VpcLattice::Listener
+    Properties:
+      ServiceIdentifier: !Ref LatticeService
+      Protocol: HTTPS
+      Port: 443
+      DefaultAction:
+        Forward:
+          TargetGroups:
+            - TargetGroupIdentifier: !Ref LatticeLambdaTarget
+              Weight: 100
+    
+  # VPC Association (only if Ingress VPC is provided)
+  LatticeVPCAssociation:
+    Type: AWS::VpcLattice::ServiceNetworkVpcAssociation
+    Condition: ProvidedIngressVpcId
+    Properties: 
+      ServiceNetworkIdentifier: !Ref LatticeServiceNetwork
+      VpcIdentifier: !Ref IngressVpcId
+  
+# ---------- SERVICE: Lambda Function ----------
+  # IAM Role
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # CloudWatch Log Group
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaFunction}
+      RetentionInDays: 7
+  
+  # Lambda Function
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: "Obtaining the AWS Region where the function is located."
+      Runtime: python3.9
+      Timeout: 10
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Handler: index.lambda_handler
+      Code: 
+        ZipFile: |-
+          import json
+          import logging
+          import string
+          import os
+
+          log = logging.getLogger("handler")
+          log.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+              try:
+                  # We log the event received
+                  log.info("Received event: %s", json.dumps(event))
+
+                  # We obtain the AWS Region where the Lambda function is located
+                  region = os.environ.get('AWS_REGION')
+                  
+                  # Return value
+                  response = "Hello from AWS Lambda function in " + region
+                  return {
+                    "statusCode": 200,
+                    "statusDescription": "200 OK",
+                    "body": response
+                  }
+
+              except Exception as e:
+                  log.exception("whoops")
+                  log.info(e)
+
+                  # Return exception error
+                  return {
+                    "statusCode": 500,
+                    "statusDescription": "500 Internal Server Error",
+                    "body": "Server error - check lambda logs\n"
+                  }
+  
+# ---------- ROUTE 53 RECORDS ----------
+  # Route 53 CNAME record in "Consumer" Hosted Zone
+  ConsumerCNAMERecord:
+    Condition: CreateConsumerRecord
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref ConsumerHostedZoneId
+      Type: CNAME
+      TTL: 300
+      Name: !Ref CustomDomainName
+      ResourceRecords:
+        - !Ref IngressNLBDomainName
+  
+  # Route 53 CNAME record in "Ingress" Hosted Zone
+  IngressCNAMERecord:
+    Condition: ProvidedIngressHostedZone
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref IngressHostedZoneId
+      Type: CNAME
+      TTL: 300
+      Name: !Ref CustomDomainName
+      ResourceRecords:
+        - !GetAtt LatticeService.DnsEntry.DomainName
