@@ -198,13 +198,10 @@ Resources:
   NginxService:
     Type: 'AWS::ECS::Service'
     DependsOn:
-      - NginxIntNLBListener443
-    DependsOn:
       - NginxExtNLBListener443
-    DependsOn:
-      - NginxIntNLBListener80
-    DependsOn:
+      - NginxIntNLBListener443
       - NginxExtNLBListener80
+      - NginxIntNLBListener80
     Properties:
       Cluster: !Ref NginxCluster
       DesiredCount: 3
