@@ -4,7 +4,7 @@ This code bundle builds a [Serverless](https://aws.amazon.com/serverless/) ingre
 
 ## Background and solution considerations
 
-The reason to build this ingress solution for VPC Lattice Services comes from the discovery and connectivity process. When you create a VPC Lattice Service, you are given a DNS name that represents it (globally unique and externally resolvable). However, from outside of the VPC, the DNS name resolves to a series of IP addresses in the **169.254.171.x/24** range (within the IPv4 Link-Local range 169.254/16 defined in [RFC3927](https://datatracker.ietf.org/doc/html/rfc3927)) and **fd00:ec2:80::/64** range (within the IPv6 Link-local range fe80::/10 defined in [RFC4291](https://datatracker.ietf.org/doc/html/rfc4291)). Link-Local addresses are not routable and are intended for devices that are connected to the same physical (or logical) link. When a consumer in a VPC resolves a Lattice Service to a Link-Local address, packets put on the wire to that address are intercepted by a special function in the Nitro card and routed to an ingress endpoint for the Lattice service. In the destination VPC, the inverse happens, and Lattice makes the necessary connections to the published Lattice Services.
+Consider the the discovery and connectivity process when accessing VPC Lattice Services. When you create a VPC Lattice Service, you are given a DNS name that represents it (globally unique and externally resolvable). However, from outside of the VPC, the DNS name resolves to a series of IP addresses in the **169.254.171.x/24** range (within the IPv4 Link-Local range 169.254/16 defined in [RFC3927](https://datatracker.ietf.org/doc/html/rfc3927)) and **fd00:ec2:80::/64** range (within the IPv6 Link-local range fe80::/10 defined in [RFC4291](https://datatracker.ietf.org/doc/html/rfc4291)). Link-Local addresses are not routable and are intended for devices that are connected to the same physical (or logical) link. When a consumer in a VPC resolves a Lattice Service to a Link-Local address, packets put on the wire to that address are intercepted by a special function in the Nitro card and routed to an ingress endpoint for the Lattice service. In the destination VPC, the inverse happens, and Lattice makes the necessary connections to the published Lattice Services.
 
 ![image](./img/example-diagram.png)
 
@@ -161,7 +161,15 @@ Once both parts of the solution have been deployed you should be able to perform
         --user "$AWS_ACCESS_KEY_ID:$AWS_SECRET_ACCESS_KEY" \
         --header "x-amz-security-token:$AWS_SESSION_TOKEN" \
         --header "x-amz-content-sha256:UNSIGNED-PAYLOAD"
-  
+
+## Scaling
+
+{{todo}}
+
+## Logging
+
+{{todo}}
+
 ## Performance
 
 A level of testing was performed against this solution. The specifics of the testing were as follows:
