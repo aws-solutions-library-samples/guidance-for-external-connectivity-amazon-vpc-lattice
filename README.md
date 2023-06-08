@@ -2,7 +2,7 @@
 
 This code bundle builds a [Serverless](https://aws.amazon.com/serverless/) ingress solution, enabling [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/) Services to be reached by consumers that reside outside of the Amazon Virtual Private Cloud ([VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html)) both from trusted (on-premise or cross-Region) and non-trusted (external) locations.
 
-## Background and solution considerations
+## Background and Solution Considerations
 
 Consider the the discovery and connectivity process when accessing VPC Lattice Services. When you create a VPC Lattice Service, you are given a DNS name that represents it (globally unique and externally resolvable). However, from outside of the VPC, the DNS name resolves to a series of IP addresses in the **169.254.171.x/24** range (within the IPv4 Link-Local range 169.254/16 defined in [RFC3927](https://datatracker.ietf.org/doc/html/rfc3927)) and **fd00:ec2:80::/64** range (within the IPv6 Link-local range fe80::/10 defined in [RFC4291](https://datatracker.ietf.org/doc/html/rfc4291)). Link-Local addresses are not routable and are intended for devices that are connected to the same physical (or logical) link. When a consumer in a VPC resolves a Lattice Service to a Link-Local address, packets put on the wire to that address are intercepted by a special function in the Nitro card and routed to an ingress endpoint for the Lattice service. In the destination VPC, the inverse happens, and Lattice makes the necessary connections to the published Lattice Services.
 
@@ -51,7 +51,7 @@ The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) 
 
 ![image](/img/nginx-docker-ECS-cluster.drawio.png)
 
-## Security
+### Security
 
 This solution uses [PrivateLink Interface Endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) within the Private Subnets so that [Nat Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) are not required to reach the ECS Services. External access to this solution is only possible via the external or internal load balancers. NLBs currently cannot have [Security Groups](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-groups.html) applied to them, however you can work with your AWS account team to enable this feature!
 
@@ -66,7 +66,7 @@ allow 10.0.0.0/8;
 deny all;
 ```
 
-## Proxy Configuration
+### Proxy Configuration
 
 The NGINX proxy image is built by CodeBuild each time the pipeline runs. To make changes to the [nginx.conf](/Dockerfiles/nginx/nginx.conf), simply modify the config in your CodeCommit repo and commit the changes back. The pipeline will run and create a newer `$latest` version in the ECR repo. To instantiate this, you need to `Update` your [ECS Fargate Service](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/update-service-console-v2.html). As with changes to the `nginx.conf` file, changes to the `ipcontrol.conf` file will also create a pipeline run - by adjusting the values in this file the cotnainer image is rebuilt. After refreshing your ECS Service, your IP control values will be enforced.
 
@@ -129,7 +129,7 @@ server {
 }
 ```
 
-## Deployment
+### Deployment
 
 Deployment of this solution is straight forward, you must:
 
@@ -152,7 +152,7 @@ For multiple Lattice Services you don’t need new hosted zones, only new CNAME 
 
 In this repository you can find an [VPC Lattice Service example](./vpc-lattice_example/) that deploys a Service Network and a Service for you to test the solution. The example also creates the CNAME records explained above, but it does not create any Route 53 hosted zone (you need to provide them).
 
-## Configuration and Testing
+### Configuration and Testing
 
 Once both parts of the solution have been deployed you should be able to perform a simple curl against your network load balancer's public DNS name, or your own dns alias records that you may have created to masquerade behind. If you have enabled your VPC Lattice Service or Service Network for authorisation, then you will need to sign your requests to the endpoint in the **same region** that you have deployed the stack in -  the following example using the **--aws-sigv4** switch with curl demonstrates how to do this:
 
@@ -162,15 +162,15 @@ Once both parts of the solution have been deployed you should be able to perform
         --header "x-amz-security-token:$AWS_SESSION_TOKEN" \
         --header "x-amz-content-sha256:UNSIGNED-PAYLOAD"
 
-## Scaling
+### Scaling
 
 {{todo}}
 
-## Logging
+### Logging
 
 {{todo}}
 
-## Performance
+### Performance
 
 A level of testing was performed against this solution. The specifics of the testing were as follows:
 
@@ -204,17 +204,17 @@ The following results show the harness performance, NLB performance, VPC Lattice
 
 ![image](/img/perf-testing-lattice.png)
 
-## Clean-up
+### Clean-up
 
 Clean-up of this solution is straight-forward. First, start by removing the stack that was created by the CodePipeline - this can be identified in the CloudFormation console with the name **%basestackname%-%accountid%-ecs**. Once this has been removed, you can remove the parent stack that built the base stack. 
 
 ***NOTE*** The ECR repo and the S3 bucket will remain and should be removed manually.
 
-## Security
+### Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
 
-## License
+### License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
 
