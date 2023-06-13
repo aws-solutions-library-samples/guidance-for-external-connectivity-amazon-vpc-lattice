@@ -187,9 +187,11 @@ This solutions assumes that you want to scale when the service reaches an averag
         ScaleOutCooldown: 60
 ```
 
-### Logging
+### Logging
 
-{{todo}}
+This solution make use of [Container Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContainerInsights.html) for capturing performance data for the ECS service. This data is written into CLoudWatch logs and can be accessed from the ECS or CloudWatch console.
+
+![img](/img/logging-container-insights.png)
 
 ### Performance
 
