@@ -204,7 +204,6 @@ Resources:
       - NginxIntNLBListener80
     Properties:
       Cluster: !Ref NginxCluster
-      DesiredCount: 3
       LaunchType: FARGATE
       LoadBalancers:
         - ContainerName: Nginx
@@ -280,6 +279,30 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: '*'
+  NginxScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties: 
+      MaxCapacity: 9
+      MinCapacity: 3
+      ResourceId: !Join ['',['service/',!Ref NginxCluster,'/',!GetAtt NginxService.Name]]
+      RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ScalableDimension: 'ecs:service:DesiredCount'
+      ServiceNamespace: 'ecs'
+  NginxScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties: 
+      PolicyName: !Join ['',['scaling-policy-',!GetAtt NginxService.Name]]
+      PolicyType: 'TargetTrackingScaling'
+      ResourceId: !Join ['',['service/',!Ref NginxCluster,'/',!GetAtt NginxService.Name]]
+      ScalableDimension: 'ecs:service:DesiredCount'
+      ScalingTargetId: !Ref NginxScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 70.0
+        ScaleInCooldown: 60
+        ScaleOutCooldown: 60
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+
 Outputs:
   VpcId:
     Description: ECS VPC ID
