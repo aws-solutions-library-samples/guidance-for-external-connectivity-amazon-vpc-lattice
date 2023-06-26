@@ -195,6 +195,7 @@ Resources:
       RuntimePlatform:
         CpuArchitecture: ARM64
         OperatingSystemFamily: LINUX
+      TaskRoleArn: !Ref NginxTaskRole
   NginxService:
     Type: 'AWS::ECS::Service'
     DependsOn:
@@ -204,6 +205,7 @@ Resources:
       - NginxIntNLBListener80
     Properties:
       Cluster: !Ref NginxCluster
+      EnableExecuteCommand: true
       LaunchType: FARGATE
       LoadBalancers:
         - ContainerName: Nginx
@@ -264,7 +266,6 @@ Resources:
                 - ecs-tasks.amazonaws.com
             Action:
               - 'sts:AssumeRole'
-      Path: /
       Policies:
         - PolicyName: ecs-actions
           PolicyDocument:
@@ -278,6 +279,34 @@ Resources:
                   - 'ecr:BatchGetImage'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
+                  - 'ssmmessages:CreateControlChannel'
+                  - 'ssmmessages:CreateDataChannel'
+                  - 'ssmmessages:OpenControlChannel'
+                  - 'ssmmessages:OpenDataChannel'
+                Resource: '*'
+  NginxTaskRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: ecs-actions
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'ssmmessages:CreateControlChannel'
+                  - 'ssmmessages:CreateDataChannel'
+                  - 'ssmmessages:OpenControlChannel'
+                  - 'ssmmessages:OpenDataChannel'
                 Resource: '*'
   NginxScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
