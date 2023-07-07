@@ -1,4 +1,4 @@
-# Ingress Pattern for Amazon VPC Lattice
+# External Connectivity to Amazon VPC Lattice
 
 This code bundle builds a [Serverless](https://aws.amazon.com/serverless/) ingress solution, enabling [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/) Services to be reached by consumers that reside outside of the Amazon Virtual Private Cloud ([VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html)) both from trusted (on-premise or cross-Region) and non-trusted (external) locations.
 
