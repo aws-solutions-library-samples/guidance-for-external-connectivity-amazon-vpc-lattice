@@ -533,7 +533,7 @@ Resources:
     Properties:
       AssignIpv6AddressOnCreation: true
       CidrBlock: !Ref PublicSubnet1Cidr
-      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 0, !GetAtt Vpc.Ipv6CidrBlocks], 6, 64 ]]
+      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 6, 64 ]]
       AvailabilityZone: !Select [0, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
@@ -544,7 +544,7 @@ Resources:
     Properties:
       AssignIpv6AddressOnCreation: true
       CidrBlock: !Ref PublicSubnet2Cidr
-      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 1, !GetAtt Vpc.Ipv6CidrBlocks], 6, 64 ]]
+      Ipv6CidrBlock: !Select [ 1, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 6, 64 ]]
       AvailabilityZone: !Select [1, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
@@ -555,7 +555,7 @@ Resources:
     Properties:
       AssignIpv6AddressOnCreation: true
       CidrBlock: !Ref PublicSubnet3Cidr
-      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 2, !GetAtt Vpc.Ipv6CidrBlocks], 6, 64 ]]
+      Ipv6CidrBlock: !Select [ 2, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 6, 64 ]]
       AvailabilityZone: !Select [2, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
@@ -579,7 +579,7 @@ Resources:
       - InternetGatewayAttachment
     Type: AWS::EC2::Route
     Properties:
-      DestinationCidrBlock: ::/0
+      DestinationIpv6CidrBlock: ::/0
       RouteTableId: !Ref PublicSubnetRouteTable
       GatewayId: !Ref InternetGateway
 
@@ -605,10 +605,11 @@ Resources:
 
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
     Properties:
       AssignIpv6AddressOnCreation: true
       CidrBlock: !Ref PrivateSubnet1Cidr
-      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 3, !GetAtt Vpc.Ipv6CidrBlocks], 6, 64 ]]
+      Ipv6CidrBlock: !Select [ 3, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 6, 64 ]]
       AvailabilityZone: !Select [0, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
@@ -626,10 +627,11 @@ Resources:
 
   PrivateSubnet2:
     Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
     Properties:
       AssignIpv6AddressOnCreation: true
       CidrBlock: !Ref PrivateSubnet2Cidr
-      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 4, !GetAtt Vpc.Ipv6CidrBlocks], 6, 64 ]]
+      Ipv6CidrBlock: !Select [ 4, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 6, 64 ]]
       AvailabilityZone: !Select [1, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
@@ -647,10 +649,11 @@ Resources:
 
   PrivateSubnet3:
     Type: AWS::EC2::Subnet
+    DependsOn: IPv6CidrBlock
     Properties:
       AssignIpv6AddressOnCreation: true
       CidrBlock: !Ref PrivateSubnet3Cidr
-      Ipv6CidrBlock: !Select [ 0, !Cidr [ !Select [ 5, !GetAtt Vpc.Ipv6CidrBlocks], 6, 64 ]]
+      Ipv6CidrBlock: !Select [ 5, !Cidr [ !Select [ 0, !GetAtt VPC.Ipv6CidrBlocks], 6, 64 ]]
       AvailabilityZone: !Select [2, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
