@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: ECS Automation Template
+Description: (%%SOLUTION_ID%%) ECS Automation Template
 
 Parameters:
   GitRepo:
