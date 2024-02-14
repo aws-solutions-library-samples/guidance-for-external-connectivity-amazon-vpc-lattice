@@ -537,6 +537,9 @@ Resources:
       AvailabilityZone: !Select [0, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
+      Tags:
+      - Key:  Name
+        Value: IngressPubSub1
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -548,6 +551,9 @@ Resources:
       AvailabilityZone: !Select [1, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
+      Tags:
+      - Key:  Name
+        Value: IngressPubSub2
 
   PublicSubnet3:
     Type: AWS::EC2::Subnet
@@ -559,6 +565,9 @@ Resources:
       AvailabilityZone: !Select [2, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: true
+      Tags:
+      - Key:  Name
+        Value: IngressPubSub3
 
   PublicSubnetRouteTable:
     Type: AWS::EC2::RouteTable
@@ -613,6 +622,9 @@ Resources:
       AvailabilityZone: !Select [0, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
+      Tags:
+      - Key:  Name
+        Value: IngressPriSub1
 
   PrivateSubnet1RouteTable:
     Type: AWS::EC2::RouteTable
@@ -635,6 +647,9 @@ Resources:
       AvailabilityZone: !Select [1, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
+      Tags:
+      - Key:  Name
+        Value: IngressPriSub2
 
   PrivateSubnet2RouteTable:
     Type: AWS::EC2::RouteTable
@@ -657,6 +672,9 @@ Resources:
       AvailabilityZone: !Select [2, Fn::GetAZs: !Ref 'AWS::Region']
       VpcId: !Ref VPC
       MapPublicIpOnLaunch: false
+      Tags:
+      - Key:  Name
+        Value: IngressPriSub3
 
   PrivateSubnet3RouteTable:
     Type: AWS::EC2::RouteTable
