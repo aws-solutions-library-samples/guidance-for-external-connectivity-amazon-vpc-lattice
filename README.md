@@ -20,7 +20,7 @@ First, start by removing the stack that was created by the CodePipeline - this c
 
 **NOTE** The ECR repo and the S3 bucket will remain and should be removed manually.
 
-### DNS resolution
+### DNS resolution
 
 Regardless of the pattern you want to follow (external, hybrid, or cross-Region) you need to create two [Route 53 Hosted Zones](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-working-with.html):
 
