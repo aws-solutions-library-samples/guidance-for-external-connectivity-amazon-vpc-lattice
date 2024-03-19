@@ -1,10 +1,10 @@
 # External Connectivity to Amazon VPC Lattice
 
-This code bundle builds a [Serverless](https://aws.amazon.com/serverless/) solution enabling [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/) services to be reached by consumers that reside outside of the Amazon Virtual Private Cloud ([VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html)) both from trusted (on-premise or cross-Region) and non-trusted (external) locations.
+This Guidance builds a [Serverless](https://aws.amazon.com/serverless/) proxy enabling [Amazon VPC Lattice](https://aws.amazon.com/vpc/lattice/) services to be reached by consumers that reside outside of the Amazon Virtual Private Cloud ([VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html)) both from trusted (on-premise or cross-Region) and non-trusted (external) locations.
 
 ## Deployment
 
-To deploy this solution follow these steps:
+To deploy this Guidance follow these steps:
 
 1.  Deploy the baseline stack using the [stack template](/pipeline-stack.yml) in any [AWS Region](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) where you are publishing [Amazon VPC Lattice services](https://docs.aws.amazon.com/vpc-lattice/latest/ug/services.html). More succinctly, you must deploy this stack as many times as you have distinct Amazon Lattice VPC service networks in a region, since there is a 1:1 mapping between service networks and Amazon VPCs. You can use the [baseline.sh](./baseline.sh) script from the repo root to get the baseline stack deployed - simply make it executable with 'chmod +x'
 
@@ -12,7 +12,9 @@ To deploy this solution follow these steps:
    
 2. After the baseline stack has been deployed, your CodePipeline will be waiting for you to release it. More accurately, you are required to 'enable a transition' from the **source** stage to the **build** stage. After you enable this transition, the pipeline will build the ECS infrastructure and deploy the load balancers and containers.
 
-3. Following this you can now [associate the ingress VPC](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-network-associations.html) to the [Amazon VPC Lattice service network](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-networks.html) you want. To have the solution working and access your Lattice services using the solution, you will need to configure DNS resolution.
+3. Following this you can now [associate the ingress VPC](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-network-associations.html) to the [Amazon VPC Lattice service network](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-networks.html) you want.
+
+4. To consume the VPC Lattice services, you will need to configure DNS resolution.
 
 ### Clean-up
 
@@ -22,39 +24,39 @@ First, start by removing the stack that was created by the CodePipeline - this c
 
 ### DNS resolution
 
-Regardless of the pattern you want to follow (external, hybrid, or cross-Region) you need to create two [Route 53 Hosted Zones](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-working-with.html):
+Regardless of the pattern you want to follow (external, hybrid, or cross-Region) you need to create two [Amazon Route 53 Hosted Zones](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-working-with.html):
 
 * First, a Route 53 hosted zone to map the custom domain name into the NLB domain name (CNAME record).
     * If the NLB is public, you will need a Route 53 public hosted zone.
-    * If the NLB is private, and the consumer is located on premises, you will need a private hosted zone. Depending the pattern you are following (hybrid or cross-region), this hosted zone needs to be associated to either the VPC where you have your hybrid DNS solution or the consumer VPC.
+    * If the NLB is private, and the consumer is located on premises, you will need a private hosted zone. Depending the pattern you are following (hybrid or cross-region), this hosted zone needs to be associated to either the VPC where you have your hybrid DNS proxy or the consumer VPC.
 * Second, a Route 53 private hosted zone that maps the custom domain name to the Lattice Service generated domain name (CNAME record). This hosted zone needs to be associated to the ingress VPC. 
 
 For multiple Lattice Services you don’t need new hosted zones, only new CNAME records.
 
-## Background and Solution Considerations
+## Background and Guidance Considerations
 
 Consider the discovery and connectivity process when accessing VPC Lattice Services. When you create a VPC Lattice Service, you are given a DNS name that represents it (globally unique and externally resolvable). However, from outside of the VPC, the DNS name resolves to a series of IP addresses in the **169.254.171.x/24** range (within the IPv4 Link-Local range 169.254/16 defined in [RFC3927](https://datatracker.ietf.org/doc/html/rfc3927)) and **fd00:ec2:80::/64** range (within the IPv6 Link-local range fe80::/10 defined in [RFC4291](https://datatracker.ietf.org/doc/html/rfc4291)). Link-Local addresses are not routable and are intended for devices that are connected to the same physical (or logical) link. When a consumer in a VPC resolves a Lattice Service to a Link-Local address, packets put on the wire to that address are intercepted by a special function in the Nitro card and routed to an ingress endpoint for the Lattice service. In the destination VPC, the inverse happens, and Lattice makes the necessary connections to the published Lattice Services.
 
 ![image](./img/vpc-lattice-diagram.png)
 
-This means that external consumers won't be able to consume a service exposed via VPC Lattice unless they are deployed in a VPC associated to the Service Network where they are associated. Unless you deploy a proxy solution within a Service Network associated VPC through which external consumers can connect - and that's what this solution is building!. With that out of the way, there are several architecture considerations to take to build the proxy ingress solution. In this particular case, we consider the following design elements and constraints:
+This means that external consumers won't be able to consume a service exposed via VPC Lattice unless they are deployed in a VPC associated to the Service Network where they are associated. Unless you deploy a proxy within a Service Network associated VPC through which external consumers can connect - and that's what this Guidance is building!. With that out of the way, there are several architecture considerations to take when building it. In this particular case, we consider the following design elements and constraints:
 
-* The proxy solution will provide layer 4 connectivity and layer 3 security. We are leaving all the layer 7 management to VPC Lattice. 
+* The Guidance will provide layer 4 connectivity and layer 3 security. We are leaving all the layer 7 management to VPC Lattice. 
 * VPC Lattice will provide authentication and authorization. The Service Network and/or Services should continue to function with authN/Z policies defined against them to ensure principals are who they say they are, and their actions are permitted.
-* The proxy solution will make use of a fleet of lightweight open-source NGINX proxies running as ECS tasks. The entry point to this fleet will be either an internal or external NLB.
-* The proxy solution will perform tcp-proxying for tls connections and pass through connections to VPC Lattice (avoids certificate management between the provider and ingress provider) reading sni fields for dynamic endpoint lookup.
-* The proxy solution will perform http proxying for non tls connections by reading host header fields for dynamic endpoint lookup.
-* The recommended and common pattern when creating a Service is to use custom domains. Therefore, now we can make use of several Route 53 hosted zones to have a different DNS resolution depending the location of the consumer (external users or the proxy solution).
+* The Guidance will make use of a fleet of lightweight open-source NGINX proxies running as ECS tasks. The entry point to this fleet will be either an internal or external NLB.
+* The Guidance will perform tcp-proxying for tls connections and pass through connections to VPC Lattice (avoids certificate management between the provider and ingress provider) reading sni fields for dynamic endpoint lookup.
+* The Guidance will perform http proxying for non tls connections by reading host header fields for dynamic endpoint lookup.
+* The recommended and common pattern when creating a Service is to use custom domains. Therefore, now we can make use of several Route 53 hosted zones to have a different DNS resolution depending the location of the consumer (external users or the proxy).
 
-## Solution Overview
+## Guidance Overview
 
-![image](./img/solution-diagram.png)
+![image](./img/guidance-diagram.png)
 
-This solution is deployed in two parts:
+This Guidance is deployed in two parts:
 
-### Base Solution
+### Base Architecture
 
-The base solution copies the code in this repo into your own AWS account and enables you to iterate on it - your changes, as you make them will be saved to your own git compliant repo from which you can orchestrate deployment. The stack template sets up:
+When deploying the `pipeline-stack.yml` file, the code in this repository is copied into your own AWS account and enables you to iterate on it - your changes, as you make them will be saved to your own git compliant repo from which you can orchestrate deployment. The stack template sets up:
 
 * An [Amazon Virtual Private Cloud](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) across three [Availability Zones](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/) with both public and private subnets across all three. In addition, supporting infrastructure such as:
     * [AWS PrivateLink VPC Endpoints (interface and gateway)](https://docs.aws.amazon.com/whitepapers/latest/aws-privatelink/what-are-vpc-endpoints.html) for the reaching AWS services privately.
@@ -64,9 +66,9 @@ The base solution copies the code in this repo into your own AWS account and ena
     * [AWS CodeCommit](https://aws.amazon.com/codecommit/)repo for holding the code.
     * [Elastic Container Registry (ECR)](https://aws.amazon.com/ecr/) for storing container images.
     * [AWS CodeBuild](https://aws.amazon.com/codebuild/) environment for building containers that run an open-source version of [NGINX](https://www.nginx.com/).
-    * [AWS CodePipeline](https://aws.amazon.com/codepipeline/) for the orchestration of the solution build and delivery. Once deployed, your pipeline is ready for release.
+    * [AWS CodePipeline](https://aws.amazon.com/codepipeline/) for the orchestration of the Guidance's build and delivery. Once deployed, your pipeline is ready for release.
 
-### Amazon Elastic Container Servce (ECS) Solution
+### Amazon Elastic Container Servce (ECS) Architecture
 
 The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) into your AWS account using CloudFormation. The stack template sets up:
 
@@ -76,7 +78,7 @@ The pipeline deploys the following [template](/cloudformation/ecs/cluster.yaml) 
 
 ## Security
 
-This solution uses [PrivateLink Interface Endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) within the Private Subnets so that [Nat Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) are not required to reach the ECS Services. External access to this solution is only possible via the external or internal load balancers. NLBs can now have [Security Groups](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-security-groups.html) applied to them (this solution doesn't create these and uses the NGINX layer3 protection mechanisms instead - detailed below)
+This Guidance uses [PrivateLink Interface Endpoints](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html) within the Private Subnets so that [NAT Gateways](https://docs.aws.amazon.com/vpc/latest/userguide/vpc-nat-gateway.html) are not required to reach the ECS Services. In addition, you can use [Security Groups](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-security-groups.html) in the NLBs (for now, the Guidance doesn't make use of SGs and uses the NGINX layer3 protection mechanisms instead - detailed below)
 
 The Target Groups for the load balancers have the `proxy_protocol_v2.enabled` attribute set such that the true IP source is passed to the NGINX targets. Within the [nginx.conf](/Dockerfiles/nginx/nginx.conf) the `Server{}` declaration for both the `Http` and `Stream` modules have their listeners set to accept the proxy protocol header `..listen % proxy_protocol..` By setting this, both modules can import the [ipcontrol.conf](/Dockerfiles/nginx/ipcontrol.conf) access list, which lists the source IP addresses that can connect to the proxy targets.
 
@@ -156,7 +158,7 @@ server {
 
 ## Testing
 
-Once both parts of the solution have been deployed you should be able to perform a simple curl against your network load balancer's public DNS name, or your own dns alias records that you may have created to masquerade behind. If you have enabled your VPC Lattice service or service network for authorisation, then you will need to sign your requests to the endpoint in the **same region** that you have deployed the stack in -  the following example using the **--aws-sigv4** switch with curl demonstrates how to do this:
+Once the Guidance has been deployed you should be able to perform a simple curl against your network load balancer's public DNS name, or your own dns alias records that you may have created to masquerade behind. If you have enabled your VPC Lattice service or service network for authorisation, then you will need to sign your requests to the endpoint in the **same region** that you have deployed the stack in -  the following example using the **--aws-sigv4** switch with curl demonstrates how to do this:
 
     curl https://yourvpclatticeservice.name \
         --aws-sigv4 "aws:amz:%region%:vpc-lattice-svcs" \
@@ -168,11 +170,11 @@ You can test this by using the [setcredentials.sh](./setcredentials.sh) script a
 
 ## Scaling
 
-This solution has been built on the assumption that it should automatically scale and contract using average CPU metrics for the ECS Service as the dimension. During load-testing, it was evident that the solution was CPU bound as the load increased, based on the specifications of the task sizes that were chosen - some independent measurement statistics can be found [here](https://www.stormforge.io/blog/aws-fargate-network-performance/) but you can adjust this solution to use a metric that best suits your application profile and load simply by modifying the [cluster.yaml](/cloudformation/ecs/cluster.yaml) template. 
+This Guidance has been built on the assumption that it should automatically scale and contract using average CPU metrics for the ECS Service as the dimension. During load-testing, it was evident that the Guidance was CPU bound as the load increased, based on the specifications of the task sizes that were chosen - some independent measurement statistics can be found [here](https://www.stormforge.io/blog/aws-fargate-network-performance/). You can adjust this by using a metric that best suits your application profile and load simply by modifying the [cluster.yaml](/cloudformation/ecs/cluster.yaml) template. 
 
-Using [Application Autoscaling](https://docs.aws.amazon.com/autoscaling/application/userguide/services-that-can-integrate-ecs.html) with ECS, you can use both TargetTrackingScaling and StepScaling. This solution uses TargetTrackingScaling and a `PredefinedMetricType` of `ECSServiceAverageCPUUtilization` - but you can write your own metrics, publish them to CloudWatch and then reference these using a `CustomizedMetricSpecification`, more details on that [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationautoscaling-scalingpolicy-targettrackingscalingpolicyconfiguration.html#cfn-applicationautoscaling-scalingpolicy-targettrackingscalingpolicyconfiguration-customizedmetricspecification)
+Using [Application Autoscaling](https://docs.aws.amazon.com/autoscaling/application/userguide/services-that-can-integrate-ecs.html) with ECS, you can use both TargetTrackingScaling and StepScaling. This Guidance uses TargetTrackingScaling and a `PredefinedMetricType` of `ECSServiceAverageCPUUtilization` - but you can write your own metrics, publish them to CloudWatch and then reference these using a `CustomizedMetricSpecification`, more details on that [here](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationautoscaling-scalingpolicy-targettrackingscalingpolicyconfiguration.html#cfn-applicationautoscaling-scalingpolicy-targettrackingscalingpolicyconfiguration-customizedmetricspecification)
 
-This solutions assumes that you want to scale when the service reaches an average cpu utilisation of `70%` - to modify this, simply adjust the template.
+This Guidance assumes that you want to scale when the service reaches an average cpu utilisation of `70%` - to modify this, simply adjust the template.
 
 ```
   NginxScalableTarget:
@@ -195,13 +197,13 @@ This solutions assumes that you want to scale when the service reaches an averag
 
 ## Logging
 
-This solution make use of [Container Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContainerInsights.html) for capturing performance data for the ECS service. This data is written into Amazon CloudWatch Logs and can be accessed from the ECS or CloudWatch console.
+This Guidance makes use of [Container Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ContainerInsights.html) for capturing performance data for the ECS service. This data is written into Amazon CloudWatch Logs and can be accessed from the ECS or CloudWatch console.
 
 ![img](/img/logging-container-insights.png)
 
 ## Performance
 
-A level of testing was performed against this solution. The specifics of the testing were as follows:
+A level of testing was performed against the Guidance. The specifics of the testing were as follows:
 
 * Region tested us-west-2
 * The Amazon VPC Lattice Service Published was [AWS Lambda](https://aws.amazon.com/lambda/)
@@ -211,7 +213,7 @@ A level of testing was performed against this solution. The specifics of the tes
 * Three zonal AWS Fargate Tasks bound to the Network Load Balancer
     * Each task had 2048 CPU units and 4096MB RAM
 
-The testing harness used came from an AWS solution that can be found [here](https://aws.amazon.com/solutions/implementations/distributed-load-testing-on-aws/) and additionally, the template can be found in this repo, [here](/load-test/distributed-load-testing-on-aws.template).
+The testing harness used came from an AWS Solution that can be found [here](https://aws.amazon.com/solutions/implementations/distributed-load-testing-on-aws/) and additionally, the template can be found in this repo, [here](/load-test/distributed-load-testing-on-aws.template).
 
 The following results show the harness performance, NLB performance, VPC Lattice performance and LAMBDA performance given 5000 remote users, generating ~3000 requests per second, with sustained access for 20 mins and a ramp-up time of 5 minutes.
 
