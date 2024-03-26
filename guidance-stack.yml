@@ -1,14 +1,24 @@
 AWSTemplateFormatVersion: 2010-09-09
-Description: (SO9403) ECS Automation Template
+Description: (SO9403) Guidance - External Connectivity to Amazon VPC Lattice (Pipeline)
 
 Parameters:
-  GitRepo:
-    Default: https://github.com/aws-samples/connectivity-patterns-for-amazon-vpc-lattice.git
+  DeploymentMode:
     Type: String
+    Default: BOTH
+    AllowedValues:
+      - PUBLIC
+      - PRIVATE
+      - BOTH
+    Description: Deployment mode for the proxy.
+
+  VPCLatticeServiceNetwork:
+    Type: String
+    Description: VPC Lattice Service Network ID (to create VPC association)
+    Default: "EMPTY"
 
   VpcName:
-    Default: lattice-ingress-vpc
-    Description: Logical name for the vpc lattice ingress vpc
+    Default: vpc-lattice-external-connectivity
+    Description: Logical name for the proxy VPC
     Type: String
 
   VpcCidr:
@@ -60,14 +70,34 @@ Parameters:
     Type: String
     ConstraintDescription: CIDR block parameter must be in the form x.x.x.x/16-28
 
+Conditions:
+  PublicDeploymentMode: !Or
+    - !Equals
+      - !Ref DeploymentMode
+      - "PUBLIC"
+    - !Equals
+      - !Ref DeploymentMode
+      - "BOTH"
+  PrivateDeploymentMode: !Or
+    - !Equals
+      - !Ref DeploymentMode
+      - "PRIVATE"
+    - !Equals
+      - !Ref DeploymentMode
+      - "BOTH"
+  CreateVPCLatticeAssociation: !Not
+    - !Equals
+      - !Ref VPCLatticeServiceNetwork
+      - "EMPTY"
+
 Resources:
-
-  # Pipeline #
-
+  # ---------- PIPELINE ----------
+  # Amazon ECR repository
   LatticeIngressECRRepo:
     Type: AWS::ECR::Repository
     DeletionPolicy: Retain
 
+  # Amazon S3 bucket
   LatticeIngressBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -78,6 +108,7 @@ Resources:
             Fn::Select: [0, Fn::Split: [-, Fn::Select: [2, Fn::Split: [/, !Ref AWS::StackId ]]]] # Takes the first part of the random GUID in the cloudformation stacks arn.
       AccessControl: Private
   
+  # Custom Resource - Moving repository code to AWS CodeCommit
   GitRepoToCodeCommitCustomResource:
     Type: Custom::CopyGitRepoToS3
     Properties:
@@ -151,7 +182,7 @@ Resources:
                   cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
       Environment: 
         Variables:
-          GitRepo: !Ref GitRepo
+          GitRepo: https://github.com/aws-solutions-library-samples/guidance-for-external-connectivity-amazon-vpc-lattice.git
           s3Bucket: !Ref LatticeIngressBucket
       Handler: index.lambda_handler
       Runtime: python3.8
@@ -172,6 +203,7 @@ Resources:
       RepositoryDescription: Repository for holding IPS solution Automation Code
       RepositoryName: !Sub ${AWS::StackName}-repository
 
+  # AWS CodePipeline pipeline
   CPipelineCloudFormationRole:
     Type: AWS::IAM::Role
     Properties:
@@ -477,30 +509,7 @@ Resources:
           RoleArn: !GetAtt CPipelineCloudWatchEventRole.Arn
           Id: codepipeline-AppPipeline
   
-  # Security #
-
-  EndpointSecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
-    Properties:
-      VpcId: !Ref VPC
-      GroupDescription: VPC Endpoint Security group
-      SecurityGroupIngress:
-        - CidrIp: !Ref VpcCidr
-          IpProtocol: '-1'
-          FromPort: 443
-          ToPort: 443
-          Description: Ingress rule for tcp 443
-      SecurityGroupEgress:
-        - CidrIp: 0.0.0.0/0
-          IpProtocol: '-1'
-          FromPort: -1
-          ToPort: -1
-      Tags:
-        - Key: Name
-          Value: Endpoint SG
-  
-  # Network #
-
+  # ---------- VPC ----------
   VPC:
     Type: AWS::EC2::VPC
     Properties:
@@ -510,6 +519,7 @@ Resources:
       Tags:
         - Key: "Name"
           Value:  !Ref VpcName
+
   IPv6CidrBlock:
     Type: AWS::EC2::VPCCidrBlock
     Properties:
@@ -517,17 +527,19 @@ Resources:
         VpcId: !Ref VPC
 
   InternetGateway:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::InternetGateway
 
   InternetGatewayAttachment:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # Public Subnets
-
+  # ---------- PUBLIC SUBNETS ----------
   PublicSubnet1:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
     Properties:
@@ -542,6 +554,7 @@ Resources:
         Value: IngressPubSub1
 
   PublicSubnet2:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
     Properties:
@@ -556,6 +569,7 @@ Resources:
         Value: IngressPubSub2
 
   PublicSubnet3:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
     Properties:
@@ -570,6 +584,7 @@ Resources:
         Value: IngressPubSub3
 
   PublicSubnetRouteTable:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -578,6 +593,7 @@ Resources:
         Value: IngressPubSubRt
 
   PublicSubnetDefaultIPv4Route:
+    Condition: PublicDeploymentMode
     DependsOn:
       - InternetGatewayAttachment
     Type: AWS::EC2::Route
@@ -587,6 +603,7 @@ Resources:
       GatewayId: !Ref InternetGateway
   
   PublicSubnetDefaultIPv6Route:
+    Condition: PublicDeploymentMode
     DependsOn:
       - InternetGatewayAttachment
     Type: AWS::EC2::Route
@@ -596,26 +613,29 @@ Resources:
       GatewayId: !Ref InternetGateway
 
   PublicSubnet1RouteTableAssociation:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicSubnetRouteTable
       SubnetId: !Ref PublicSubnet1
 
   PublicSubnet2RouteTableAssociation:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicSubnetRouteTable
       SubnetId: !Ref PublicSubnet2
 
   PublicSubnet3RouteTableAssociation:
+    Condition: PublicDeploymentMode
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PublicSubnetRouteTable
       SubnetId: !Ref PublicSubnet3
-
-  # Private Subnets #
-
+  
+  # ---------- PRIVATE SUBNETS ----------
   PrivateSubnet1:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
     Properties:
@@ -630,6 +650,7 @@ Resources:
         Value: IngressPriSub1
 
   PrivateSubnet1RouteTable:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -638,12 +659,14 @@ Resources:
         Value: IngressPriSub1Rt
 
   PrivateSubnet1RouteTableAssociation:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateSubnet1RouteTable
       SubnetId: !Ref PrivateSubnet1
 
   PrivateSubnet2:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
     Properties:
@@ -658,6 +681,7 @@ Resources:
         Value: IngressPriSub2
 
   PrivateSubnet2RouteTable:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -666,12 +690,14 @@ Resources:
         Value: IngressPriSub2Rt
 
   PrivateSubnet2RouteTableAssociation:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateSubnet2RouteTable
       SubnetId: !Ref PrivateSubnet2
 
   PrivateSubnet3:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::Subnet
     DependsOn: IPv6CidrBlock
     Properties:
@@ -686,6 +712,7 @@ Resources:
         Value: IngressPriSub3
 
   PrivateSubnet3RouteTable:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -694,13 +721,13 @@ Resources:
         Value: IngressPriSub3Rt
 
   PrivateSubnet3RouteTableAssociation:
+    Condition: PrivateDeploymentMode
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref PrivateSubnet3RouteTable
       SubnetId: !Ref PrivateSubnet3
 
-# VPC Endpoints #
-
+  # ---------- VPC ENDPOINTS ----------
   EcrDkrEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties: 
@@ -795,3 +822,63 @@ Resources:
         - !Ref PrivateSubnet3
       VpcEndpointType: Interface
       VpcId: !Ref VPC
+
+
+  # ---------- SECURITY GROUPS ----------
+  EndpointSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: VPC Endpoint Security Group
+      SecurityGroupIngress:
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: '-1'
+          FromPort: 443
+          ToPort: 443
+          Description: Ingress rule for tcp 443
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+          FromPort: -1
+          ToPort: -1
+      Tags:
+        - Key: Name
+          Value: Endpoint SG
+  
+  VPCLatticeAssociationSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: VPC Lattice VPC association Security Group
+      SecurityGroupIngress:
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: '-1'
+          FromPort: 443
+          ToPort: 443
+          Description: Ingress rule for tcp 443
+        - CidrIp: !Ref VpcCidr
+          IpProtocol: '-1'
+          FromPort: 80
+          ToPort: 80
+          Description: Ingress rule for tcp 80
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: '-1'
+          FromPort: -1
+          ToPort: -1
+      Tags:
+        - Key: Name
+          Value: VPCLattice SG
+  
+  # ---------- VPC LATTICE VPC ASSOCIATION ----------
+  VPCLatticeVPCAssociation:
+    Condition: CreateVPCLatticeAssociation
+    Type: AWS::VpcLattice::ServiceNetworkVpcAssociation
+    Properties:
+      ServiceNetworkIdentifier: !Ref VPCLatticeServiceNetwork
+      VpcIdentifier: !Ref VPC
+      SecurityGroupIds:
+        - !Ref VPCLatticeAssociationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: vpc-association-external-connectivity

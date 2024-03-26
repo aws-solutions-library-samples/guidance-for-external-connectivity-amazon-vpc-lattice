@@ -1,4 +1,6 @@
 AWSTemplateFormatVersion: 2010-09-09
+Description: Guidance - External Connectivity to Amazon VPC Lattice (Proxy)
+
 Parameters:
   VpcId:
     Description: The VPC id
@@ -36,11 +38,13 @@ Parameters:
     Description: Container image
     Type: String
     Default: ''
+
 Resources:
   NginxLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
       LogGroupName: !Sub '/${NginxCluster}'
+
   NginxExtNLBTGroup443:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
@@ -56,6 +60,7 @@ Resources:
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
+
   NginxExtNLBTGroup80:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
@@ -71,6 +76,7 @@ Resources:
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
+
   NginxExtNLB:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
@@ -81,6 +87,7 @@ Resources:
         - !Ref PublicSubnet2
         - !Ref PublicSubnet3
       Type: network
+
   NginxExtNLBListener443:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -90,6 +97,7 @@ Resources:
       LoadBalancerArn: !Ref NginxExtNLB
       Port: 443
       Protocol: TCP
+
   NginxExtNLBListener80:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -99,6 +107,7 @@ Resources:
       LoadBalancerArn: !Ref NginxExtNLB
       Port: 80
       Protocol: TCP
+
   NginxIntNLBTGroup443:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
@@ -114,6 +123,7 @@ Resources:
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
+
   NginxIntNLBTGroup80:
     Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
     Properties:
@@ -129,6 +139,7 @@ Resources:
       TargetType: ip
       UnhealthyThresholdCount: 3
       VpcId: !Ref VpcId
+
   NginxIntNLB:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
@@ -139,6 +150,7 @@ Resources:
         - !Ref PrivateSubnet2
         - !Ref PrivateSubnet3
       Type: network
+
   NginxIntNLBListener443:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -148,6 +160,7 @@ Resources:
       LoadBalancerArn: !Ref NginxIntNLB
       Port: 443
       Protocol: TCP
+
   NginxIntNLBListener80:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
@@ -157,6 +170,7 @@ Resources:
       LoadBalancerArn: !Ref NginxIntNLB
       Port: 80
       Protocol: TCP
+
   NginxCluster:
     Type: 'AWS::ECS::Cluster'
     Properties:
@@ -165,6 +179,7 @@ Resources:
       ClusterSettings:
         - Name: containerInsights
           Value: enabled
+
   NginxTask:
     Type: 'AWS::ECS::TaskDefinition'
     Properties:
@@ -196,6 +211,7 @@ Resources:
         CpuArchitecture: ARM64
         OperatingSystemFamily: LINUX
       TaskRoleArn: !Ref NginxTaskRole
+
   NginxService:
     Type: 'AWS::ECS::Service'
     DependsOn:
@@ -230,6 +246,7 @@ Resources:
             - !Ref PrivateSubnet3
       SchedulingStrategy: REPLICA
       TaskDefinition: !Ref NginxTask
+
   NginxSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -254,6 +271,7 @@ Resources:
       Tags:
         - Key: Name
           Value: Nginx SG
+
   NginxTaskExecRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -284,6 +302,7 @@ Resources:
                   - 'ssmmessages:OpenControlChannel'
                   - 'ssmmessages:OpenDataChannel'
                 Resource: '*'
+
   NginxTaskRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -308,6 +327,7 @@ Resources:
                   - 'ssmmessages:OpenControlChannel'
                   - 'ssmmessages:OpenDataChannel'
                 Resource: '*'
+
   NginxScalableTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties: 
@@ -317,6 +337,7 @@ Resources:
       RoleARN: !Sub 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
       ScalableDimension: 'ecs:service:DesiredCount'
       ServiceNamespace: 'ecs'
+      
   NginxScalingPolicy:
     Type: AWS::ApplicationAutoScaling::ScalingPolicy
     Properties: 
