@@ -14,9 +14,10 @@ Parameters:
   VPCLatticeServiceNetwork:
     Type: String
     Description: VPC Lattice Service Network ID (to create VPC association)
+    Default: "EMPTY"
 
   VpcName:
-    Default: lattice-proxy-vpc
+    Default: vpc-lattice-external-connectivity
     Description: Logical name for the proxy VPC
     Type: String
 
@@ -84,6 +85,10 @@ Conditions:
     - !Equals
       - !Ref DeploymentMode
       - "BOTH"
+  CreateVPCLatticeAssociation: !Not
+    - !Equals
+      - !Ref VPCLatticeServiceNetwork
+      - "EMPTY"
 
 Resources:
   # ---------- PIPELINE ----------
@@ -867,7 +872,8 @@ Resources:
   
   # ---------- VPC LATTICE VPC ASSOCIATION ----------
   VPCLatticeVPCAssociation:
-    Type: 'AWS::VpcLattice::ServiceNetworkVpcAssociation'
+    Condition: CreateVPCLatticeAssociation
+    Type: AWS::VpcLattice::ServiceNetworkVpcAssociation
     Properties:
       ServiceNetworkIdentifier: !Ref VPCLatticeServiceNetwork
       VpcIdentifier: !Ref VPC

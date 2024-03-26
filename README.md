@@ -97,9 +97,22 @@ For multiple VPC Lattice services you don’t need new hosted zones, only new CN
 
 To deploy this Guidance follow these steps:
 
-1.  Deploy the baseline stack using the following [stack template](/guidance-stack.yml). More succinctly, you must deploy this stack as many times as you have distinct Amazon Lattice VPC service networks in a Region, since there is a 1:1 mapping between service networks and Amazon VPCs. 
-    * A VPC Lattice service network ID is required to create the VPC association.
-    * You can use the [baseline.sh](./scripts/baseline.sh) script to get the baseline stack deployed - simply make it executable with 'chmod +x'. You will need to include the service network ID in the script file. The script executes the following command:
+1.  Deploy the baseline stack using the following [stack template](/guidance-stack.yml). More succinctly, you must deploy this stack as many times as you have distinct Amazon Lattice VPC service networks in a Region, since there is a 1:1 mapping between service networks and Amazon VPCs. This stack has the following variables:
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| DeploymentMode | Deployment mode for the proxy access (Network Load Balancer) | `String` | BOTH | yes
+| VpcName | Deployment mode for the proxy access (Network Load Balancer) | `String` | vpc-lattice-external-connectivity | yes
+| VpcCidr | CIDR block for the VPC | `String` | 192.168.1.0/24 | yes
+| PublicSubnet1Cidr | CIDR block for the Public Subnet 1 located in AZ 1 | `String` | 192.168.1.0/27 | no
+| PublicSubnet2Cidr | CIDR block for the Public Subnet 2 located in AZ 2 | `String` | 192.168.1.32/27 | no
+| PublicSubnet3Cidr | CIDR block for the Public Subnet 3 located in AZ 3 | `String` | 192.168.1.64/27 | no
+| PrivateSubnet1Cidr | CIDR block for the Private Subnet 1 located in AZ 1 | `String` | 192.168.1.96/27 | no
+| PrivateSubnet2Cidr | CIDR block for the Private Subnet 2 located in AZ 2 | `String` | 192.168.1.128/27 | no
+| PrivateSubnet3Cidr | CIDR block for the Private Subnet 3 located in AZ 3 | `String` | 192.168.1.160/27 | no
+| VPCLatticeServiceNetwork | VPC Lattice Service Network ID (to create VPC association) | `String` |  | no
+
+You can use the [baseline.sh](./scripts/baseline.sh) script to get the baseline stack deployed - simply make it executable with 'chmod +x'. You will need to include the service network ID in the script file. The script executes the following command:
 
 ```
 aws cloudformation deploy --template-file ./guidance-stack.yml --stack-name guidance-vpclattice-pipeline --parameter-overrides VPCLatticeServiceNetwork=$VPCLATTICE_SERVICE_NETWORK --capabilities CAPABILITY_IAM

@@ -5,9 +5,9 @@ In this folder you have two files that provide the following examples:
 * `vpc-lattice_service.yml` builds the VPC Lattice resources needed to test the Guidance: service network, service, and [AWS Lambda](https://aws.amazon.com/pm/lambda) target.
 * `dns-resolution.yml` creates and configures the corresponding Route 53 hosted zones to provide end-to-end service consumption using this Guidance.
 
-## Variables
+## Variables
 
-### vpc-lattice_service.yaml
+### vpc-lattice_service.yaml
 
 | Name | Description | Type | Required |
 |------|-------------|------|:--------:|
@@ -27,7 +27,7 @@ In this folder you have two files that provide the following examples:
 | PublicHostedZone | Amazon Route 53 Public Hosted Zone ID (Public Access) | `String` | no |
 | PrivateHostedZone | Amazon Route 53 Private Hosted Zone ID (Hybrid/Cross-Region Access) | `String` | no |
 
-## Deployment steps
+## Deployment steps
 
 1. First, deploy the `vpc-lattice_service.yaml` template to create the VPC Lattice resources. You will need to provide the following parameters: *CustomDomainName* and *CertificateArn*.
 
