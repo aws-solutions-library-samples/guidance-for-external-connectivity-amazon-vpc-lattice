@@ -48,11 +48,11 @@ export VPCLATTICE_DOMAIN_NAME=$(aws cloudformation describe-stacks --stack-name 
 4. Obtain the VPC ID and NLB domain name (internal and/or external) deployed by the Guidance.
 
 ```
-export VPC_ID=$(aws cloudformation describe-stacks --stack-name guidance-vpclattice-pipeline-867003233025-ecs --query 'Stacks[0].Outputs[?OutputKey == `VpcId`].OutputValue' --output text)
+export VPC_ID=$(aws cloudformation describe-stacks --stack-name guidance-vpclattice-pipeline-XXXXXX-ecs --query 'Stacks[0].Outputs[?OutputKey == `VpcId`].OutputValue' --output text)
 
-export NLB_INT_DOMAIN_NAME=$(aws cloudformation describe-stacks --stack-name guidance-vpclattice-pipeline-867003233025-ecs --query 'Stacks[0].Outputs[?OutputKey == `NginxIntNLB`].OutputValue' --output text)
+export NLB_INT_DOMAIN_NAME=$(aws cloudformation describe-stacks --stack-name guidance-vpclattice-pipeline-XXXXXX-ecs --query 'Stacks[0].Outputs[?OutputKey == `NginxIntNLB`].OutputValue' --output text)
 
-export NLB_EXT_DOMAIN_NAME=$(aws cloudformation describe-stacks --stack-name guidance-vpclattice-pipeline-867003233025-ecs --query 'Stacks[0].Outputs[?OutputKey == `NginxExtNLB`].OutputValue' --output text)
+export NLB_EXT_DOMAIN_NAME=$(aws cloudformation describe-stacks --stack-name guidance-vpclattice-pipeline-XXXXXX-ecs --query 'Stacks[0].Outputs[?OutputKey == `NginxExtNLB`].OutputValue' --output text)
 ```
 
 5. Now you can deploy the DNS resolution example. You will need to provide the following parameters: *VpcId*, *HostedZoneName*, *CustomDomainName*, *VPCLatticeDomainName*, *PublicHostedZone* (optional), *PrivateHostedZone* (optional), *NLBExtDomainName* (optional), and *NLBIntDomainName* (optional).
