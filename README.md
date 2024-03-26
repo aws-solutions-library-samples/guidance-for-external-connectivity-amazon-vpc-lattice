@@ -4,13 +4,14 @@ This Guidance builds a [Serverless](https://aws.amazon.com/serverless/) proxy en
 
 ![image](./img/guidance-diagram.png)
 
-## Table of Content
+## Table of Content
 
 1. [Overview](#overview)
     - [Cost](#cost)
 2. [Prerequisites](#prerequisites)
     - [Operating System](#operating-system)
     - [Supported AWS Regions](#supported-aws-regions)
+    - [VPC Lattice resources](#vpc-lattice-resources)
     - [DNS resolution configuration](#dns-resolution-configuration)
 3. [Deployment Steps](#deployment-steps)
 4. [Deployment Validation](#deployment-validation-required)
@@ -36,7 +37,7 @@ When you create a [VPC Lattice service](https://docs.aws.amazon.com/vpc-lattice/
 
 This means that external applications won't be able to consume a service exposed via VPC Lattice unless they are deployed in a VPC associated to the [VPC Lattice service network](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-networks.html) where they are associated. Unless you deploy a proxy within a VPC associated to a VPC Lattice service network through which external consumers can connect - and that's what this Guidance builds!
 
-### Cost
+### Cost
 
 You are responsible for the cost of the AWS services used while running this Guidance. As of March 2024, the cost for running this Guidance with the default settings in the US East (N. Virginia) is approximately $200.52 per month. The following table provides a sample cost breakdown for deploying this Guidance with the default parameters in the US East (N. Virginia) Region for one month.
 
@@ -56,7 +57,7 @@ We recommend creating a [Budget](https://docs.aws.amazon.com/cost-management/la
 
 ## Prerequisities
 
-### Operating System
+### Operating System
 
 These deployment instructions are optimized to best work on Linux ARM64 instances. As we make use of AWS Fargate as serverless compute solution for containers, you don't need to worry about the instance infrastructure management.
 
@@ -71,7 +72,7 @@ These deployment instructions are optimized to best work on Linux ARM64 instance
         * [AWS CodeBuild](https://aws.amazon.com/codebuild/) - supported Regions [here](https://docs.aws.amazon.com/general/latest/gr/codebuild.html)
         * [AWS CodePipeline](https://aws.amazon.com/codepipeline/) - supported Regions [here](https://docs.aws.amazon.com/general/latest/gr/codepipeline.html)
 
-### VPC Lattice resources
+### VPC Lattice resources
 
 * This Guidance provides access to VPC Lattice services, but **it does not create any VPC Lattice resources**. 
 * When deploying the Guidance, a VPC Lattice service network ID is required so a [VPC Lattice VPC association](https://docs.aws.amazon.com/vpc-lattice/latest/ug/service-network-associations.html) is created.
@@ -140,7 +141,7 @@ Once you enable this transition, the pipeline deploys the following [template](/
     * Move to the Amazon Elastic Container Service console. A cluster with the name **guidance-vpclattice-pipeline-%accountid%-ecs-NginxCluster-%random%** should have been created with 3 running tasks.
     * Move to the VPC console, and under *VPC Lattice - Service Networks* verify that the VPC created by this Guidance has been associated with your VPC Lattice service network. 
 
-## Running the Guidance
+## Running the Guidance
 
 Once the Guidance has been deployed you should be able to perform a simple curl against your network load balancer's public DNS name, or your own DNS alias records that you may have created to masquerade behind. 
 
@@ -335,7 +336,7 @@ This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) fil
 
 See [CONTRIBUTING](CONTRIBUTING.md) for more information.
 
-## Authors
+## Authors
 
 * Adam Palmer, Senior Network Specialist Solutions Architect, AWS
 * Pablo Sánchez Carmona, Network Specialist Solutions Architect, AWS
