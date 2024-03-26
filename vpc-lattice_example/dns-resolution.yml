@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: DNS Resolution - Example
+
+Parameters:
+  HostedZoneName:
+    Type: String
+    Description: Private Hosted Zone Name (for External Connectivity VPC resolution)
+  CustomDomainName:
+    Type: String
+    Description: Custom Domain Name (VPC Lattice service)
+  VPCLatticeDomainName:
+    Type: String
+    Description: VPC Lattice service generated Domain Name
+  NLBExternalDomainName:
+    Type: String
+    Description: Network Load Balancer domain name (Public Access)
+    Default: " "
+  NLBInternalDomainName:
+    Type: String
+    Description: Network Load Balancer domain name (Hybrid/Cross-Region Access)
+    Default: " "
+  VpcId:
+    Type: String
+    Description: VPC ID (External Connectivity)
+  PublicHostedZone:
+    Type: String
+    Description: Amazon Route 53 Public Hosted Zone ID (Public Access)
+    Default: "EMPTY"
+  PrivateHostedZone:
+    Type: String
+    Description: Amazon Route 53 Private Hosted Zone ID (Hybrid/Cross-Region Access)
+    Default: "EMPTY"
+
+Conditions:
+  PublicResolution: !Not
+    - !Equals
+      - !Ref PublicHostedZone
+      - "EMPTY"
+  PrivateResolution: !Not
+    - !Equals
+      - !Ref PrivateHostedZone
+      - "EMPTY"
+
+Resources:
+  # ---------- PUBLIC RESOLUTION ----------
+  PublicCNAMERecord:
+    Condition: PublicResolution
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref PublicHostedZone
+      Name: !Ref CustomDomainName
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !Ref NLBExternalDomainName  
+
+  # ---------- HYBRID/CROSS-REGION RESOLUTION ----------
+  PrivateCNAMERecord:
+    Condition: PrivateResolution
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref PrivateHostedZone
+      Name: !Ref CustomDomainName
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !Ref NLBInternalDomainName  
+
+  # ---------- VPC RESOLUTION ----------
+  VPCHostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref HostedZoneName
+      VPCs:
+        - VPCId: !Ref VpcId
+          VPCRegion: !Ref "AWS::Region"
+  
+  VpcCNAMERecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref VPCHostedZone
+      Name: !Ref CustomDomainName
+      Type: CNAME
+      TTL: 300
+      ResourceRecords:
+        - !Ref VPCLatticeDomainName  

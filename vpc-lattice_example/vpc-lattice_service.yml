@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC Lattice service - Example
+
+Parameters:
+  CustomDomainName:
+    Type: String
+    Description: Custom Domain Name (VPC Lattice service)
+  CertificateArn:
+    Type: String
+    Description: Certificate ARN (for HTTPS connection)
+  
+Resources:
+  # ---------- VPC LATTICE RESOURCES ----------
+  VPCLatticeServiceNetwork:
+    Type: AWS::VpcLattice::ServiceNetwork
+    Properties:
+      Name: vpc-lattice-service-network
+      AuthType: AWS_IAM
+  
+  VPCLatticeServiceNetworkAuthPolicy:
+    Type: AWS::VpcLattice::AuthPolicy
+    Properties:
+      ResourceIdentifier: !Ref VPCLatticeServiceNetwork
+      Policy:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: '*'
+            Resource: '*'
+
+  VPCLatticeService:
+    Type: AWS::VpcLattice::Service
+    Properties:
+      Name: vpc-lattice-service
+      AuthType: AWS_IAM 
+      CustomDomainName: !Ref CustomDomainName
+      CertificateArn: !Ref CertificateArn
+  
+  VPCLatticeServiceAuthPolicy:
+    Type: AWS::VpcLattice::AuthPolicy
+    Properties:
+      ResourceIdentifier: !Ref VPCLatticeService
+      Policy:
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: '*'
+            Resource: '*'
+
+  VPCLatticeLambdaTarget:
+    Type: AWS::VpcLattice::TargetGroup
+    Properties:
+      Name: lambda-target
+      Type: LAMBDA
+      Targets:
+        - Id: !GetAtt LambdaFunction.Arn
+  
+  VPCLatticeServiceAssociation:
+    Type: AWS::VpcLattice::ServiceNetworkServiceAssociation
+    Properties:
+      ServiceIdentifier: !Ref VPCLatticeService
+      ServiceNetworkIdentifier: !Ref VPCLatticeServiceNetwork
+  
+  # ---------- LAMBDA FUNCTION ----------
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+  
+  FunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${LambdaFunction}
+      RetentionInDays: 7
+  
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: "Obtaining the AWS Region where the Lambda function is located."
+      Runtime: python3.10
+      Timeout: 10
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Handler: index.lambda_handler
+      Code: 
+        ZipFile: |-
+          import json
+          import logging
+          import random
+          import string
+          import os
+          import boto3
+
+          log = logging.getLogger("handler")
+          log.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+              try:
+                  # We obtain the AWS Region where the Lambda function is located
+                  region = os.environ.get('AWS_REGION')
+                  # We log the event received
+                  log.info("Received event: %s", json.dumps(event))
+
+                  # Return value
+                  response = region
+                  return {
+                    "statusCode": 200,
+                    "statusDescription": "200 OK",
+                    "body": response
+                  }
+
+              except Exception as e:
+                  log.exception("whoops")
+                  log.info(e)
+
+                  # Return exception error
+                  return {
+                    "statusCode": 500,
+                    "statusDescription": "500 Internal Server Error",
+                    "body": "Server error - check lambda logs\n"
+                  }
+
+Outputs:
+  VPCLatticeServiceNetwork:
+    Value: !Ref VPCLatticeServiceNetwork
+    Description: VPC Lattice service network
+  VPCLatticeServiceGeneratedDomainName:
+    Value: !GetAtt VPCLatticeService.DnsEntry.DomainName
+    Description: VPC Lattice service generated domain name
