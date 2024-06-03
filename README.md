@@ -6,28 +6,30 @@ This Guidance builds a [Serverless](https://aws.amazon.com/serverless/) proxy en
 
 ## Table of Content
 
-1. [Overview](#overview)
+- [Guidance for External Connectivity to Amazon VPC Lattice](#guidance-for-external-connectivity-to-amazon-vpc-lattice)
+  - [Table of Content](#table-of-content)
+  - [Overview](#overview)
     - [Cost](#cost)
-2. [Prerequisites](#prerequisites)
+  - [Prerequisities](#prerequisities)
     - [Operating System](#operating-system)
     - [Supported AWS Regions](#supported-aws-regions)
     - [VPC Lattice resources](#vpc-lattice-resources)
     - [DNS resolution configuration](#dns-resolution-configuration)
-3. [Deployment Steps](#deployment-steps)
-4. [Deployment Validation](#deployment-validation-required)
-5. [Running the Guidance](#running-the-guidance-required)
-6. [Next Steps](#next-steps)
+  - [Deployment Steps](#deployment-steps)
+  - [Deployment Validation](#deployment-validation)
+  - [Running the Guidance](#running-the-guidance)
+  - [Next Steps](#next-steps)
     - [Security](#security)
     - [Proxy Configuration](#proxy-configuration)
     - [Scaling](#scaling)
     - [Logging](#logging)
     - [Performance](#performance)
-7. [Cleanup](#cleanup-required)
-8. [FAQ, known issues, additional considerations, and limitations](#faq-known-issues-additional-considerations-and-limitations-optional)
+  - [Cleanup](#cleanup)
+  - [FAQ, known issues, additional considerations, and limitations](#faq-known-issues-additional-considerations-and-limitations)
     - [Considerations](#considerations)
-9. [License](#license)
-10. [Contributing](#contributing)
-11. [Authors](#authors)
+  - [License](#license)
+  - [Contributing](#contributing)
+  - [Authors](#authors)
 
 ## Overview
 
@@ -351,5 +353,5 @@ See [CONTRIBUTING](CONTRIBUTING.md) for more information.
 
 ## Authors
 
-* Adam Palmer, Senior Network Specialist Solutions Architect, AWS
-* Pablo Sánchez Carmona, Network Specialist Solutions Architect, AWS
+* Adam Palmer, Principal Network Specialist Solutions Architect, AWS
+* Pablo Sánchez Carmona, Senior Network Specialist Solutions Architect, AWS
