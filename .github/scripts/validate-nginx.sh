@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."   # repo root
+cd "$(dirname "$0")/../.." # repo root
 
 DOCKERFILE=proxies/nginx/Dockerfile
 CONF=proxies/nginx/nginx.conf

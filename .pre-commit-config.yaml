@@ -1,58 +1,120 @@
-# Pre-commit hooks for local validation. Mirrors the CI workflow
-# (.github/workflows/validation.yml) so issues are caught before pushing.
+---
+# Pre-commit hooks configuration
+# Install:      pre-commit install
+# Update:       pre-commit autoupdate
+# Run manually: pre-commit run --all-files
 #
-# Setup:
-#   pip install pre-commit
-#   pre-commit install
-# Run on demand against all files:
-#   pre-commit run --all-files
+# Mirrors the CI workflow (.github/workflows/validation.yml) where practical so
+# issues are caught locally before pushing. cfn-nag is not included here because
+# it brings a Ruby/Docker dependency and already runs in CI.
 #
-# Note: hadolint and the Envoy/NGINX config checks run via Docker, so Docker must
-# be available locally for those hooks. cfn-nag is not included here (Ruby/Docker
-# dependency); it runs in CI only.
+# Ordering principle: cheap secret/file hygiene first, then read-only linters and
+# repo-specific validators.
+
+default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
-  # ---- CloudFormation linting ----
+  # Secret and file hygiene checks from pre-commit's stock hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+        name: Check YAML syntax
+        # CloudFormation intrinsics and AWS::LanguageExtensions are handled by
+        # cfn-lint.
+        exclude: ^(guidance-stack\.yml|testing/.*\.yml)$
+      - id: check-json
+        name: Check JSON syntax
+      - id: check-merge-conflict
+        name: Check for merge conflict markers
+      - id: detect-private-key
+        name: Detect Private Keys
+      - id: detect-aws-credentials
+        name: Detect AWS Credentials
+        args: [--allow-missing-credentials]
+      - id: check-added-large-files
+        name: Check added large files
+      - id: check-executables-have-shebangs
+        name: Check executables have shebangs
+      - id: check-symlinks
+        name: Check symlinks
+
+  # CloudFormation linting
   - repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v1.46.0
+    rev: v1.51.4
     hooks:
       - id: cfn-lint
-        files: (guidance-stack\.yml|testing/.*\.yml)$
+        name: cfn-lint (CloudFormation templates)
+        files: ^(guidance-stack\.yml|testing/.*\.yml)$
 
-  # ---- CloudFormation security scanning (testing/ templates) ----
+  # CloudFormation security scanning (testing/ templates)
   - repo: https://github.com/bridgecrewio/checkov
-    rev: 3.2.500
+    rev: 3.2.533
     hooks:
       - id: checkov
-        args: ["--config-file", ".checkov.yml"]
+        name: Checkov (CloudFormation security)
+        args: [--config-file, .checkov.yml]
         pass_filenames: false
 
-  # ---- Dockerfile linting ----
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1
+  # Spell-check documentation
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
     hooks:
-      - id: hadolint
-        files: proxies/.*/Dockerfile$
+      - id: codespell
+        name: Codespell (typos)
+        files: \.md$
 
-  # ---- Shell script linting ----
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
+  # Enforce conventional-commit messages from .commitlintrc.yaml (commit-msg)
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.25.0
+    hooks:
+      - id: commitlint
+        name: Commitlint
+        stages: [commit-msg]
+        additional_dependencies:
+          - "@commitlint/config-conventional"
+
+  # Lint GitHub Actions workflows
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+        name: Actionlint (GitHub Actions)
+
+  # Static analysis for shell scripts
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
+        name: ShellCheck (shell linter)
         files: \.sh$
+        args: [--severity=warning]
 
-  # ---- Local hooks: proxy config validation via the pinned engine images ----
+  # Local hooks: proxy config validation via the pinned engine images
   - repo: local
     hooks:
+      - id: hadolint
+        name: Hadolint (Dockerfiles)
+        language: system
+        entry: hadolint
+        files: ^proxies/.*/Dockerfile$
+      - id: shfmt
+        name: shfmt (format shell scripts)
+        language: system
+        entry: shfmt
+        args: [-w, -i, "2", -ci, -sr, -bn]
+        files: \.sh$
       - id: nginx-config-test
         name: nginx -t (validate nginx.conf in the shipped image)
         language: script
         entry: .github/scripts/validate-nginx.sh
-        files: proxies/nginx/(nginx\.conf|Dockerfile)$
+        files: ^proxies/nginx/(nginx\.conf|Dockerfile)$
         pass_filenames: false
+        stages: [manual]
       - id: envoy-config-validate
         name: envoy --mode validate (validate envoy.yaml in the shipped image)
         language: script
         entry: .github/scripts/validate-envoy.sh
-        files: proxies/envoy/(envoy\.yaml|Dockerfile)$
+        files: ^proxies/envoy/(envoy\.yaml|Dockerfile)$
         pass_filenames: false
+        stages: [manual]

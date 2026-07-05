@@ -1,0 +1,19 @@
+---
+# Dependabot configuration
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Dependabot options reference:
+# https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    commit-message:
+      prefix: "ci(deps): "
+    schedule:
+      interval: weekly
+      day: friday
+      time: "00:00"
+      timezone: UTC
+    open-pull-requests-limit: 10

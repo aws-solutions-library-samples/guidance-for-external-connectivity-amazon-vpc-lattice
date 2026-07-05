@@ -1,10 +1,12 @@
 # cfn-lint configuration.
 #
-# E3014 and E3021 are false positives on guidance-stack.yml: the
-# AWS::ApplicationAutoScaling::ScalableTarget uses an Fn::Join/GetAtt ResourceId
-# under the AWS::LanguageExtensions transform, which cfn-lint's dependency analysis
-# misreads (it cannot fully expand the transform locally). The template deploys
-# cleanly (verified via change sets), so these rules are disabled repo-wide.
+# E1019, E3014, and E3021 are false positives on guidance-stack.yml:
+# AWS::LanguageExtensions expands Fn::ForEach iterator variables and generated
+# resource names before deployment, but cfn-lint evaluates parts of the raw
+# template before expansion. E1019 misreads iterator variables such as SubnetType,
+# AvailabilityZone, and EndpointType as missing parameters; E3014/E3021 misread
+# the Application Auto Scaling ResourceId dependency. The template deploys cleanly
+# (verified via change sets), so these rules are disabled repo-wide.
 #
 # W1030 fires because cfn-lint resolves the VpcCidr parameter default and checks the
 # parameter value against an 'ipv4-network' format; the parameter's AllowedPattern
@@ -14,6 +16,7 @@ templates:
   - testing/*.yml
 
 ignore_checks:
+  - E1019
   - E3014
   - E3021
   - W1030

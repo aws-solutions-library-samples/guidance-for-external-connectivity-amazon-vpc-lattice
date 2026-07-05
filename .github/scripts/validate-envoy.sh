@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."   # repo root
+cd "$(dirname "$0")/../.." # repo root
 
 DOCKERFILE=proxies/envoy/Dockerfile
 CONF=proxies/envoy/envoy.yaml

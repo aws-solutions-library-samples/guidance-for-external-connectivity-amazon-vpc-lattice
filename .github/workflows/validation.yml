@@ -10,80 +10,113 @@ on:
     branches: [main]
   pull_request:
 
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cfn-lint:
     name: cfn-lint (templates)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install cfn-lint
+      - run: pip install cfn-lint==1.51.4
       - name: Lint CloudFormation
         run: cfn-lint   # uses .cfnlintrc (templates + ignore_checks)
 
   cfn-security:
     name: CloudFormation security (checkov + cfn-nag)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install checkov
+      - run: pip install checkov==3.2.533
       - name: Checkov (testing/ templates)
         run: checkov --config-file .checkov.yml
       # cfn-nag scans the raw template; like checkov it cannot expand the
       # AWS::LanguageExtensions transform, so it is scoped to the plain testing/
       # templates. The main stack is covered by cfn-lint.
       - name: cfn-nag (testing/ templates)
-        uses: stelligent/cfn_nag@master
-        with:
-          input_path: testing
-          extra_args: --fail-on-warnings
+        run: |
+          set -euo pipefail
+          gem install cfn-nag -v 0.8.10 --user-install --no-document
+          gem_user_dir="$(ruby -e 'print Gem.user_dir')"
+          export PATH="${gem_user_dir}/bin:${PATH}"
+          cfn_nag_scan --input-path testing
 
   dockerfiles:
     name: hadolint (Dockerfiles)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Lint NGINX Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: proxies/nginx/Dockerfile
       - name: Lint Envoy Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: proxies/envoy/Dockerfile
 
   shell:
     name: shellcheck (scripts)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: ShellCheck
-        uses: ludeeus/action-shellcheck@master
-        with:
-          scandir: "."
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          mapfile -t shell_files < <(git ls-files '*.sh')
+          shellcheck --severity=warning "${shell_files[@]}"
 
   proxy-configs:
     name: Proxy config validation (nginx -t / envoy validate)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate NGINX config
-        run: ./.github/scripts/validate-nginx.sh
+        run: |
+          set -euo pipefail
+          ./.github/scripts/validate-nginx.sh
       - name: Validate Envoy config
-        run: ./.github/scripts/validate-envoy.sh
+        run: |
+          set -euo pipefail
+          ./.github/scripts/validate-envoy.sh
 
   markdown-links:
     name: Markdown link check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Check links
-        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        uses: tcort/github-action-markdown-link-check@v1
         with:
           use-quiet-mode: "yes"
           config-file: .github/markdown-link-check.json

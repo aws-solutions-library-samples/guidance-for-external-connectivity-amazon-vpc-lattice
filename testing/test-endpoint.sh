@@ -34,13 +34,30 @@ PROFILE=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --sign) SIGN="true"; shift ;;
-    --region) REGION="${2:-}"; shift 2 ;;
-    --profile) PROFILE="${2:-}"; shift 2 ;;
-    -h|--help)
-      grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    -*) echo "Unknown option: $1" >&2; exit 1 ;;
-    *) ENDPOINT="$1"; shift ;;
+    --sign)
+      SIGN="true"
+      shift
+      ;;
+    --region)
+      REGION="${2:-}"
+      shift 2
+      ;;
+    --profile)
+      PROFILE="${2:-}"
+      shift 2
+      ;;
+    -h | --help)
+      grep '^#' "$0" | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      ENDPOINT="$1"
+      shift
+      ;;
   esac
 done
 
@@ -64,7 +81,7 @@ fi
 
 # Resolve credentials: profile/credential chain first, then existing env vars.
 if [ -n "$PROFILE" ]; then
-  creds=$(aws configure export-credentials --format process --profile "$PROFILE" 2>/dev/null || true)
+  creds=$(aws configure export-credentials --format process --profile "$PROFILE" 2> /dev/null || true)
   if [ -z "$creds" ]; then
     echo "ERROR: could not export credentials for profile '$PROFILE'." >&2
     echo "       Check the profile (aws configure / aws sso login)." >&2
@@ -78,7 +95,7 @@ elif [ -n "${AWS_ACCESS_KEY_ID:-}" ] && [ -n "${AWS_SECRET_ACCESS_KEY:-}" ]; the
   AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN:-}"
 else
   # Fall back to the default credential chain (default profile, role, etc.)
-  creds=$(aws configure export-credentials --format process 2>/dev/null || true)
+  creds=$(aws configure export-credentials --format process 2> /dev/null || true)
   if [ -z "$creds" ]; then
     echo "ERROR: no credentials found for signing." >&2
     echo "       Use --profile <profile>, run 'aws sso login', or set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY." >&2
@@ -97,6 +114,6 @@ fi
 
 echo "Signed (SigV4) request to $ENDPOINT in $REGION"
 curl -4 -sS -D - "$ENDPOINT" \
-    --aws-sigv4 "aws:amz:${REGION}:vpc-lattice-svcs" \
-    --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
-    "${header_args[@]}"
+  --aws-sigv4 "aws:amz:${REGION}:vpc-lattice-svcs" \
+  --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" \
+  "${header_args[@]}"
